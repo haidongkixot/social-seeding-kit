@@ -1,0 +1,49 @@
+# Risk-manager limits. These are the "careful" preset; raise them only after 2 weeks at GREEN, and record the change in risk/incidents.md.
+
+[identity.personal]
+label = "Personal profile"
+max_items_per_day = 8          # comments + replies + posts + DMs combined
+max_offer_posts_per_day = 2
+max_dms_per_person_per_day = 3 # only to people who replied or asked
+min_minutes_between_items = 10
+
+[identity.page]
+label = "Brand Page"
+enabled = false                # only in channels that allow Pages
+max_items_per_day = 10
+max_offer_posts_per_day = 3
+min_minutes_between_items = 10
+
+[per_group]
+max_items_per_day = 2
+max_offer_posts_per_day = 1
+max_new_comments_per_thread_per_day = 1
+warmup_days = 14               # after joined_on: helpful comments only, no links, no offer posts
+board_offer_warmup_days = 7    # on kind = "board" with promo_posts = "yes": a no-link offer post may start this many days after joining
+
+[scan]
+latest_posts_per_group = 50    # the scout reads this many latest posts of every active group
+posts_per_js_call = 9          # keeps each browser javascript call short
+
+[content]
+max_link_share = 0.30          # share of the day's items that may contain any link
+link_min_stage = 2             # QUALIFIED or later
+duplicate_window_days = 14     # no identical sentence across channels in this window
+max_unanswered_turns = 2       # then the conversation is CLOSED
+max_extra_tags = 3             # a reply may tag 0-3 other commenters of the same post, plus the person replied to
+thread_max_age_days = 7        # older threads are not seeded
+
+[health]
+# AMBER: halve caps, no links. RED: pause identity for the hours below and alert the owner.
+amber_if = ["1 post removed or declined in 7 days", "comment visibility check fails once", "group pending-approval rate > 50%"]
+red_if = ["any Facebook warning, restriction or checkpoint", "2+ removals in 7 days", "feature block (cannot comment or post)"]
+red_pause_hours = 72
+
+[schedule]
+daily_run = "08:00"            # in operator_timezone
+hot_replies = "16:00"
+check_replies_hours = "20:00-07:00"
+
+[languages]
+# native_review_done must be true before the language is used live.
+"en" = { native_review_done = false, reviewer = "" }

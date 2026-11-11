@@ -1,0 +1,11 @@
+{
+  "name": "social-seeding-kit",
+  "owner": { "name": "Social Seeding Kit" },
+  "plugins": [
+    {
+      "name": "social-seeding",
+      "source": "./plugins/social-seeding",
+      "description": "Facebook group and fanpage seeding with human approval: scout, draft, review, risk-gate, and a control-center page."
+    }
+  ]
+}

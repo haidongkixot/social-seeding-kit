@@ -1,0 +1,22 @@
+[demand]
+en = ["looking for", "need a supplier", "who sells", "wholesale"]
+es = ["busco", "necesito", "quien vende"]
+
+[category.home]
+en = ["detergent", "soap"]
+es = ["detergente", "jabon"]
+
+[category.build]
+en = ["cement", "tiles"]
+es = ["cemento", "azulejos"]
+
+[signals.qualified]
+en = ["price", "how much", "minimum", "contact"]
+es = ["precio", "cuanto", "minimo"]
+
+[signals.negative]
+en = ["spam", "not interested", "scam"]
+es = ["spam", "no me interesa", "estafa"]
+
+[cities]
+en = ["Anytown", "Springfield"]

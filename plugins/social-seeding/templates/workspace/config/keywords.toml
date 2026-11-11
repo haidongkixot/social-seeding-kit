@@ -1,0 +1,19 @@
+# Search terms the scout uses inside each group's search box, and intent signals the conversation-manager watches for.
+# Keyed by language code (declared in caps.toml). Matching is case-insensitive and accent-insensitive.
+
+[demand]   # buyer posts: the main seed targets on boards
+en = ["looking for", "need a supplier", "who sells", "wholesale", "where can i buy"]
+
+[category.products]
+en = ["products"]
+
+# The conversation-manager uses these to move a conversation to QUALIFIED.
+[signals.qualified]
+en = ["price", "how much", "minimum", "payment", "delivery", "contact", "whatsapp", "phone", "interested"]
+
+# Any of these closes the conversation (CLOSED).
+[signals.negative]
+en = ["spam", "not interested", "stop", "report", "scam", "admin"]
+
+[cities]
+en = []

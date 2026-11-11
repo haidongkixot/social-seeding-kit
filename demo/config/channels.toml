@@ -1,0 +1,53 @@
+[[channel]]
+id = "A1"
+name = "Anytown Small Business Owners"
+url = "https://www.facebook.com/groups/1000000000001"
+kind = "discussion"
+identity = "personal"
+language = "en"
+fit = ["home", "build"]
+city = "Anytown"
+members = 12000
+posts_per_day = 12
+promo_posts = "unknown"
+links = "no"
+rules = "On-topic only. No spam."
+wave = "pilot"
+state = "active"
+joined_on = "2026-01-05"
+
+[[channel]]
+id = "B1"
+name = "Springfield Wholesale Board"
+url = "https://www.facebook.com/groups/1000000000002"
+kind = "board"
+identity = "personal"
+language = "es"
+fit = ["home"]
+city = "Springfield"
+members = 54000
+posts_per_day = 90
+promo_posts = "yes"
+links = "no"
+rules = "Buyers and sellers. One offer post per day."
+wave = "pilot"
+state = "active"
+joined_on = "2026-01-05"
+
+[[channel]]
+id = "P1"
+name = "Demo Hardware Fans (fanpage)"
+url = "https://www.facebook.com/demohardwarefans"
+kind = "page"
+identity = "personal"
+language = "en"
+fit = ["build"]
+city = "Anytown"
+members = 3400
+posts_per_day = 2
+promo_posts = "no"
+links = "unknown"
+rules = "Comments welcome."
+wave = "w2"
+state = "pending"
+joined_on = ""

@@ -1,0 +1,7 @@
+runs/
+conversations/
+leads.csv
+reports/
+status/
+risk/
+__pycache__/

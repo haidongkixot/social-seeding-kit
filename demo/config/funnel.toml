@@ -1,0 +1,25 @@
+[destination.home]
+type = "whatsapp"
+name = "Demo Co - Home goods"
+url = "https://chat.whatsapp.com/DEMOHOME0000000000000"
+covers = ["detergent", "soap"]
+tracked_base = ""
+
+[destination.build]
+type = "telegram"
+name = "Demo Co - Building"
+url = "https://t.me/democo_build"
+covers = ["cement", "tiles"]
+tracked_base = "https://example.com/go/build?src={channel}"
+
+[[member_count]]
+date = "2026-01-05"
+home = 10
+build = 4
+note = "baseline"
+
+[[member_count]]
+date = "2026-01-12"
+home = 16
+build = 5
+note = "week 1"

@@ -1,0 +1,7 @@
+# What you sell, as categories. Every channel (fit), conversation (category) and funnel destination refers to an id here.
+# keywords: words the scout uses to recognise a thread about this category (any language).
+
+[[category]]
+id = "products"
+label = "Products"
+keywords = ["supplier", "wholesale", "buy"]

@@ -1,0 +1,17 @@
+# End of the funnel: where a qualified person is invited, one destination per catalog category.
+# type: whatsapp | telegram | zalo | messenger | website
+# tracked_base: optional redirect URL that records clicks per channel, e.g. https://example.com/go/products?src={channel}
+
+[destination.products]
+type = "website"
+name = "Your Brand - Products"
+url = "https://example.com/"
+covers = ["products"]
+tracked_base = ""
+
+# The owner enters the member count of each destination weekly; the reporter uses the change as "joins".
+# Add one value per category id.
+[[member_count]]
+date = "2026-01-01"
+products = 0
+note = "baseline - enter the real count"

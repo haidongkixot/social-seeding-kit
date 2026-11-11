@@ -1,0 +1,12 @@
+# Who we are and how the system talks. Edited in the control center (Setup tab) or here.
+# disclosure placeholders: {rep} = rep_name, {brand} = brand_name
+
+[brand]
+brand_name = "Your Brand"
+rep_name = "Your Name"
+disclosure = "I am {rep}, from {brand}."
+owner_email = ""
+ui_language = "en"                    # en | vi | es: language of the control center and the approval sheet
+audience_timezone = "UTC"             # where the people in the groups live; posting times follow this
+operator_timezone = "UTC"             # the owner's PC clock; run times are in this zone
+control_center_url = ""               # filled by /seeding-setup after the page is published

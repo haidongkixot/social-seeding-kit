@@ -1,0 +1,9 @@
+[[category]]
+id = "home"
+label = "Home goods"
+keywords = ["detergent", "soap", "kitchenware"]
+
+[[category]]
+id = "build"
+label = "Building materials"
+keywords = ["cement", "tiles", "paint"]

@@ -1,0 +1,28 @@
+# Facebook groups and fanpages for seeding.
+# kind:        "discussion" = conversation-first | "board" = high-volume ad board (buyer posts + own offer posts only) | "page" = a fanpage
+# identity:    "personal" (the representative, brand role disclosed) | "page" (the brand Page; only where the channel allows Pages)
+# language:    BCP-47 code declared in caps.toml [languages]
+# fit:         one or more catalog category ids
+# promo_posts: "yes" | "no" | "unknown"  - may we post our own offer post? "unknown" is treated as "no" until checked
+# links:       "yes" | "no" | "unknown"  - may comments contain links? "unknown" means no links (send by DM on request)
+# wave:        rollout wave: "pilot" | "w2" | "w3" | "w4"
+# state:       "not_joined" | "pending" | "active" | "cooldown" | "retired"
+# joined_on:   date the owner joined (YYYY-MM-DD); warm-up starts here
+
+# [[channel]]
+# id = "A1"
+# name = "Example group"
+# url = "https://www.facebook.com/groups/1234567890"
+# kind = "discussion"
+# identity = "personal"
+# language = "en"
+# fit = ["products"]
+# city = "Anytown"
+# members = 1000
+# posts_per_day = 10
+# promo_posts = "unknown"
+# links = "unknown"
+# rules = "Short summary of the group rules."
+# wave = "pilot"
+# state = "not_joined"
+# joined_on = ""

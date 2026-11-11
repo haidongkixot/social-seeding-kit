@@ -5,3 +5,6 @@ demo/leads.csv
 __pycache__/
 *.pyc
 build.log
+demo/status/
+demo/risk/
+.pytest_cache/

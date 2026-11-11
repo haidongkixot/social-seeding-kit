@@ -1,0 +1,9 @@
+[brand]
+brand_name = "Demo Co"
+rep_name = "Dana Demo"
+disclosure = "I am {rep}, from {brand}."
+owner_email = "owner@example.com"
+ui_language = "en"
+audience_timezone = "Europe/Madrid"
+operator_timezone = "Asia/Ho_Chi_Minh"
+control_center_url = ""
