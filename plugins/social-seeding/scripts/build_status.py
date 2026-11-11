@@ -90,6 +90,27 @@ def incidents() -> list[dict]:
     return rows
 
 
+def queue_items(run_dirs: list[Path], keep: int = 3) -> list[dict]:
+    """Items of the newest queues (morning and -pm), for the control center's Approvals tab."""
+    out = []
+    for d in run_dirs[-keep:]:
+        for f in sorted(d.glob("queue*.json")):
+            q = read_json(f, {})
+            items = q.get("items", []) if isinstance(q, dict) else q
+            tag = f.stem.removeprefix("queue")          # "" or "-pm"
+            for it in items:
+                out.append({"id": f"{d.name}{tag}-{it.get('n')}", "date": d.name, "queue": f.stem, "n": it.get("n"),
+                            "channel": it.get("channel", ""), "type": it.get("type", ""),
+                            "category": it.get("category", ""), "language": it.get("language", ""),
+                            "text": it.get("text", ""), "meaning": it.get("meaning", it.get("vi", "")),
+                            "target_url": it.get("target_url", it.get("url", "")),
+                            "time": it.get("time", ""), "why": it.get("why", ""),
+                            "stage_from": it.get("stage_from"), "stage_to": it.get("stage_to"),
+                            "has_link": bool(it.get("has_link", False)), "draft_only": bool(it.get("draft_only", False)),
+                            "review": it.get("review", {}).get("verdict", ""), "risk": it.get("risk", {}).get("verdict", "")})
+    return out
+
+
 def readiness(caps: dict, funnel: dict, chans: list[dict], knowledge: list[dict], br: dict, cats: list[dict]) -> list[dict]:
     langs = caps.get("languages", {})
     unreviewed = [k for k, v in langs.items() if not v.get("native_review_done")]
@@ -207,7 +228,7 @@ def main() -> int:
                         "items_posted": len(posts), "leads": len(leads)}}
 
     collections = {"summary": [summary], "groups": groups, "runs": runs, "scans": scans, "rejected": rejected,
-                   "conversations": convs, "funnel": funnel_rows, "posts": posts, "health": health(),
+                   "conversations": convs, "queue": queue_items(run_dirs), "funnel": funnel_rows, "posts": posts, "health": health(),
                    "incidents": incidents(), "readiness": readiness(caps, funnel, chans, knowledge, br, cats),
                    "knowledge": knowledge, "memberCounts": counts, "links": links, "leads": leads}
 
