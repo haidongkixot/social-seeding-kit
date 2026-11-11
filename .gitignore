@@ -1,0 +1,7 @@
+fixtures/
+demo/runs/
+demo/conversations/
+demo/leads.csv
+__pycache__/
+*.pyc
+build.log
