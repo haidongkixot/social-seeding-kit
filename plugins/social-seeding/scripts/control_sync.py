@@ -3,7 +3,9 @@
 Usage: python scripts/control_sync.py <pull-dir> [--dry-run]
 
 <pull-dir> holds one JSON list per collection, as the sync-control skill saved them from the artifact database:
-  config.json        documents {id: brand|catalog|funnel|channels|caps|keywords|languages, ...}   -> config/*.toml
+  config.json        documents {id: brand|catalog|funnel|channels|caps|keywords|languages|facts, ...} -> config/*.toml
+                     Only documents the owner edited on the page are applied: _updated is set and is newer than _synced.
+                     The skill then writes _synced (the ids are in the report's "synced" list).
   approvals.json     {id, queue_id, decision: approve|edit|drop, note}                              -> runs/<date>/marked.json
   control.json       {id: "state", paused, pausedChannels[]}                                        -> runs/control-state.json
   runRequests.json   {id, kind, status, note}                                                       -> reported only
@@ -63,10 +65,18 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     d = Path(args.pull_dir)
-    report: dict = {"config_changed": [], "marked": [], "stale_marks": [], "requests": [], "notes": [], "paused": False,
+    report: dict = {"config_changed": [], "synced": [], "config_clean": [], "marked": [], "stale_marks": [], "requests": [], "notes": [], "paused": False,
                     "paused_channels": []}
 
-    docs = {x["id"]: x for x in read_list(d, "config") if x.get("id") in config_sync.DOCS}
+    docs = {}
+    for x in read_list(d, "config"):
+        if x.get("id") not in config_sync.DOCS:
+            continue
+        if x.get("_updated") and str(x["_updated"]) > str(x.get("_synced", "")):
+            docs[x["id"]] = x
+        else:
+            report["config_clean"].append(x["id"])        # unchanged on the page: the workspace files stay as they are
+    report["synced"] = sorted(docs)
     if docs:
         report["config_changed"] = config_sync.apply_docs(docs, args.dry_run)
 

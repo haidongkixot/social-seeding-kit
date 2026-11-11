@@ -107,17 +107,29 @@ def test_control_sync_page_flow_end_to_end(ws):
     run(ws, "config_sync.py", "export")
     brand = json.loads((ws / "status/config/brand.json").read_text(encoding="utf-8"))
     brand["brand_name"] = "Edited On Page"
-    d = pull(ws, config=[brand])
+    brand["_updated"] = "2026-11-12T10:00:00Z"
+    d = pull(ws, config=[brand, json.loads((ws / "status/config/catalog.json").read_text(encoding="utf-8"))])
     assert run(ws, "control_sync.py", str(d)).returncode == 0
     assert run(ws, "validate.py").returncode == 0
     assert run(ws, "build_status.py").returncode == 0
     summary = json.loads((ws / "status/summary.json").read_text(encoding="utf-8"))[0]
     assert summary["brand_name"] == "Edited On Page"
+    rep = json.loads((ws / "status/sync-report.json").read_text(encoding="utf-8"))
+    assert rep["synced"] == ["brand"] and rep["config_clean"] == ["catalog"]
+
+
+def test_control_sync_skips_documents_already_synced(ws):
+    brand = {"id": "brand", "brand_name": "Stale Copy", "rep_name": "Y", "disclosure": "{rep}", "ui_language": "en",
+             "audience_timezone": "UTC", "operator_timezone": "UTC",
+             "_updated": "2026-11-12T10:00:00Z", "_synced": "2026-11-12T10:05:00Z"}
+    d = pull(ws, config=[brand])
+    run(ws, "control_sync.py", str(d))
+    assert "Demo Co" in (ws / "config/brand.toml").read_text(encoding="utf-8")
 
 
 def test_control_sync_dry_run_writes_nothing(ws):
     brand = {"id": "brand", "brand_name": "X", "rep_name": "Y", "disclosure": "{rep}", "ui_language": "en",
-             "audience_timezone": "UTC", "operator_timezone": "UTC"}
+             "audience_timezone": "UTC", "operator_timezone": "UTC", "_updated": "2026-11-12T10:00:00Z"}
     d = pull(ws, config=[brand])
     run(ws, "control_sync.py", str(d), "--dry-run")
     assert "Demo Co" in (ws / "config/brand.toml").read_text(encoding="utf-8")

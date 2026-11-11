@@ -207,3 +207,26 @@ def test_toml_writer_escapes_strings(ws):
     (d / "channels.json").write_text(json.dumps(ch), encoding="utf-8")
     run(ws, "config_sync.py", "apply", "status/config")
     assert toml(ws / "config" / "channels.toml")["channel"][0]["rules"] == ch["channels"][0]["rules"]
+
+
+def test_facts_document_round_trip_and_bookkeeping_keys(ws):
+    facts = {"id": "facts", "_updated": "2026-01-01T00:00:00Z", "facts": [
+        {"id": "f1", "scope": "company", "text": "We ship  by\npallet.", "approved": True, "_x": 1},
+        {"id": "f2", "scope": "home", "text": "Detergent comes in 5 kg bags.", "approved": True},
+        {"id": "f3", "scope": "home", "text": "Maybe a new soap line.", "approved": False}]}
+    brand = json.loads((run(ws, "config_sync.py", "export") and (ws / "status/config/brand.json")).read_text(encoding="utf-8"))
+    brand["_updated"] = "2026-01-01T00:00:00Z"
+    (ws / "bundle.json").write_text(json.dumps({"facts": facts, "brand": brand}), encoding="utf-8")
+    assert run(ws, "config_sync.py", "apply", "bundle.json").returncode == 0
+    assert "_updated" not in (ws / "config" / "brand.toml").read_text(encoding="utf-8")
+    approved = (ws / "knowledge" / "facts.md").read_text(encoding="utf-8")
+    assert "status: APPROVED" in approved and "- We ship by pallet." in approved and "## home" in approved
+    assert "status: DRAFT" in (ws / "knowledge" / "facts-draft.md").read_text(encoding="utf-8")
+    assert run(ws, "validate.py").returncode == 0
+    run(ws, "config_sync.py", "export")
+    out = json.loads((ws / "status/config/facts.json").read_text(encoding="utf-8"))["facts"]
+    assert [(f["scope"], f["approved"]) for f in out] == [("company", True), ("home", True), ("home", False)]
+    # removing every fact removes the files
+    (ws / "bundle.json").write_text(json.dumps({"facts": {"id": "facts", "facts": []}}), encoding="utf-8")
+    run(ws, "config_sync.py", "apply", "bundle.json")
+    assert not (ws / "knowledge" / "facts.md").exists() and not (ws / "knowledge" / "facts-draft.md").exists()

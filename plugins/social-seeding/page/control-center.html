@@ -1,0 +1,798 @@
+<title>Seeding Control Center</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Familjen+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout concept: an operations console. A slim header (brand, language, sync state), a tab rail, then one working surface per tab.
+   Ink-navy text on a cool paper ground, one signal-blue accent; green/amber/red are reserved for health and state. */
+:root {
+  --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f8f9fc; --ink: #142033; --mute: #566782; --line: #dbe1ea;
+  --accent: #1d54d4; --accent-ink: #ffffff; --accent-soft: #e5ecfb;
+  --good: #14744a; --good-soft: #dff3e8; --warn: #8f5b00; --warn-soft: #fff0d0; --bad: #b0241c; --bad-soft: #fde3e0;
+  --fb-bg: #f0f2f5; --fb-ink: #050505; --fb-mute: #65676b; --fb-blue: #1877f2;
+  --f-display: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1521; --surface: #162030; --surface-2: #1b2739; --ink: #e7ecf4; --mute: #9aa9bf; --line: #27344a;
+    --accent: #7599f2; --accent-ink: #0a1120; --accent-soft: #1d2d52;
+    --good: #55c98d; --good-soft: #17382a; --warn: #f0b955; --warn-soft: #3d2f10; --bad: #f08a82; --bad-soft: #43201d;
+    --fb-bg: #18191a; --fb-ink: #e4e6eb; --fb-mute: #b0b3b8; --fb-blue: #4599ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1521; --surface: #162030; --surface-2: #1b2739; --ink: #e7ecf4; --mute: #9aa9bf; --line: #27344a;
+  --accent: #7599f2; --accent-ink: #0a1120; --accent-soft: #1d2d52;
+  --good: #55c98d; --good-soft: #17382a; --warn: #f0b955; --warn-soft: #3d2f10; --bad: #f08a82; --bad-soft: #43201d;
+  --fb-bg: #18191a; --fb-ink: #e4e6eb; --fb-mute: #b0b3b8; --fb-blue: #4599ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); padding-block: 0 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-size: 20px; } h3 { font-size: 15px; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.tbl td .mono { overflow-wrap: normal; }
+a { color: var(--accent); }
+#langsel { width: auto; }
+.mute { color: var(--mute); }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 18px 0 12px; }
+.brandmark { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 280px; }
+.brandmark h1 { font-size: 22px; overflow-wrap: anywhere; }
+.brandmark .tag { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+.top-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.syncpill { font: 500 12px/1 var(--f-mono); padding: 6px 9px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); color: var(--mute); }
+.syncpill.ok { color: var(--good); background: var(--good-soft); border-color: transparent; }
+.syncpill.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.banner { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
+.banner.paused { background: var(--warn-soft); color: var(--warn); }
+.banner.info { background: var(--accent-soft); color: var(--ink); font-weight: 400; }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* tabs */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; margin-bottom: 18px; }
+.tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--mute); font-weight: 500; white-space: nowrap; display: flex; gap: 7px; align-items: center; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--ink); }
+.count { font: 500 11px/1 var(--f-mono); background: var(--accent-soft); color: var(--ink); border-radius: 99px; padding: 3px 7px; }
+
+/* controls */
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 7px 13px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--mute); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn.small { padding: 4px 9px; font-size: 12.5px; }
+.btn.on-good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.btn.on-warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.btn.on-bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+input[type=text], input[type=url], input[type=email], input[type=time], input[type=date], input[type=number], select, textarea {
+  width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+textarea { resize: vertical; min-height: 84px; }
+input:disabled, select:disabled, textarea:disabled { background: var(--surface-2); color: var(--mute); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lbl { font-weight: 500; font-size: 12.5px; }
+.hint { color: var(--mute); font-size: 12.5px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; }
+.chk { display: inline-flex; gap: 7px; align-items: center; cursor: pointer; }
+.chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* surfaces */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0; }
+.section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.lede { color: var(--mute); margin-top: 4px; max-width: 70ch; }
+.empty { padding: 28px 16px; text-align: center; color: var(--mute); border: 1px dashed var(--line); border-radius: 10px; }
+.empty b { display: block; color: var(--ink); font-family: var(--f-display); font-size: 16px; margin-bottom: 4px; }
+.errors { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 10px 14px; }
+.errors ul { margin: 4px 0 0; padding-left: 18px; }
+.savebar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-top: 16px; margin-top: 18px; border-top: 1px solid var(--line); }
+.unsaved { color: var(--warn); font-weight: 500; }
+
+/* setup */
+.setup { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: start; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.step { width: 100%; text-align: left; background: none; border: 0; padding: 9px 10px; border-radius: 7px; cursor: pointer; display: flex; gap: 10px; align-items: center; color: var(--mute); }
+.step[aria-current="step"] { background: var(--accent-soft); color: var(--ink); font-weight: 500; }
+.step .dot { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font: 500 11px/1 var(--f-mono); flex: none; }
+.step .dot.done { background: var(--good); border-color: var(--good); color: var(--accent-ink); }
+.list-row { display: grid; gap: 10px; align-items: end; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table.tbl { border-collapse: collapse; width: 100%; min-width: 560px; }
+.tbl th { text-align: left; font: 500 11px/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--mute); padding: 9px 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl td select, .tbl td input { min-width: 96px; padding: 4px 6px; }
+.tbl td input[type=checkbox], .tbl td input[type=radio] { min-width: 0; width: 16px; padding: 0; }
+.tbl td .chk span { white-space: nowrap; }
+.tbl a { color: var(--accent); }
+.pill { display: inline-block; font: 500 11.5px/1 var(--f-mono); padding: 4px 8px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap; }
+.pill.good { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.pill.accent { background: var(--accent-soft); border-color: transparent; }
+
+/* dashboard */
+.subnav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.subnav button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 5px 12px; cursor: pointer; color: var(--mute); }
+.subnav button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.kpi { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.kpi .n { font: 600 30px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.kpi .l { color: var(--mute); font-size: 12.5px; }
+.two { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.funnel { display: flex; flex-direction: column; gap: 8px; }
+.frow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 70px; gap: 10px; align-items: center; }
+.frow .bar { height: 14px; background: var(--surface-2); border-radius: 4px; position: relative; overflow: hidden; border: 1px solid var(--line); }
+.frow .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); border-right: 2px solid var(--accent); }
+.frow .bar i.now { background: var(--accent); opacity: .85; border: 0; }
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checklist li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; }
+.tick { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--warn); margin-top: 2px; }
+.tick.done { background: var(--good); border-color: var(--good); }
+.timeline { display: flex; gap: 4px; flex-wrap: wrap; }
+.timeline i { width: 16px; height: 16px; border-radius: 3px; display: block; }
+.timeline i.GREEN { background: var(--good); } .timeline i.AMBER { background: var(--warn); } .timeline i.RED { background: var(--bad); }
+
+/* approvals */
+.appr-list { display: flex; flex-direction: column; gap: 18px; }
+.appr { align-items: start; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.appr.marked-approve { border-color: var(--good); } .appr.marked-drop { border-color: var(--bad); } .appr.marked-edit { border-color: var(--warn); }
+.fb { background: var(--fb-bg); border-radius: 8px; padding: 10px; }
+.fbcard { background: var(--surface); border-radius: 8px; padding: 12px 14px 4px; box-shadow: 0 1px 2px rgba(0,0,0,.18); color: var(--fb-ink); font-family: "Segoe UI", Helvetica, Arial, sans-serif; }
+.fbcard .hd { display: flex; gap: 8px; align-items: center; }
+.fbcard .av { width: 38px; height: 38px; border-radius: 50%; background: var(--fb-blue); color: #fff; font-weight: 700; display: grid; place-items: center; flex: none; }
+.fbcard .nm { font-weight: 600; font-size: 14.5px; color: var(--ink); } .fbcard .nm span { font-weight: 400; color: var(--fb-mute); }
+.fbcard .sub { font-size: 12.5px; color: var(--fb-mute); }
+.fbcard .tx { font-size: 15px; line-height: 1.4; color: var(--ink); margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fbcard .ft { border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 6px 0; color: var(--fb-mute); font-weight: 600; font-size: 13.5px; }
+.meaning { padding: 10px 12px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; }
+.meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.decide { display: flex; gap: 8px; flex-wrap: wrap; }
+.summary-bar { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; }
+
+/* control */
+.big-toggle { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.state-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--good); }
+.state-dot.paused { background: var(--warn); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; align-items: start; }
+.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; z-index: 20; max-width: calc(100vw - 32px); }
+.toast.bad { background: var(--bad); color: #fff; }
+
+@media (max-width: 760px) {
+  .setup { grid-template-columns: minmax(0, 1fr); }
+  .steps { flex-direction: row; overflow-x: auto; gap: 4px; }
+  .step { width: auto; white-space: nowrap; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .appr { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: 14px; }
+  .frow { grid-template-columns: 78px minmax(0, 1fr) 56px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+const I18N = {"en":{"_name":"English","app_name":"Seeding Control Center","language":"Language","tab_setup":"Setup","tab_channels":"Channels","tab_approvals":"Approvals","tab_dashboard":"Dashboard","tab_control":"Control","tab_health_short":"Health","readonly":"You can look but not change anything here. Ask the owner for edit access.","db_unavailable":"The page's data store is not available in this view. Sign in, or ask the owner to share the page with you.","db_slow":"Some data has not loaded yet. What you see may be out of date.","write_failed":"Could not save ({code}). Try again in a moment.","saved":"Saved. Claude applies it at the next sync.","save":"Save","next":"Next step","remove":"Remove","unsaved":"Unsaved changes","fix_these":"Fix these before saving:","none_yet":"Nothing here yet","open":"Open","done":"Done","preview":"Preview","sync_ok":"Config synced","sync_failed":"Last sync failed","sync_never":"Not synced yet","paused_banner":"Everything is paused. Daily runs, replies checks and posting are stopped until you resume.","setup_wait_title":"Waiting for Claude to publish the configuration","setup_wait_body":"In Claude Code, run /publish-status once. The setup forms fill in from your workspace files.","step_brand":"Brand and representative","step_brand_lede":"Who is speaking, and how the role is disclosed in every first message.","step_categories":"Categories","step_categories_lede":"What you sell or recruit for. Channels, conversations and funnel destinations all refer to these.","step_funnel":"Funnel destinations","step_funnel_lede":"Where a qualified person is invited, one destination per category.","step_languages":"Languages","step_languages_lede":"Languages used in the groups. A language is used live only after someone fluent has reviewed it.","step_knowledge":"Facts","step_knowledge_lede":"Short statements the writer may use. Nothing else counts as a fact.","step_channels":"Channels","step_channels_lede":"Paste the URLs of the Facebook groups and fanpages you want to seed.","step_caps":"Limits","step_caps_lede":"How much the system may do per day. Start careful.","step_schedule":"Schedule","step_schedule_lede":"When the daily runs happen, on the owner's computer clock.","f_brand_name":"Brand name","f_rep_name":"Representative name","f_owner_email":"Owner email","h_owner_email":"Reply alerts and reports go here.","f_ui_language":"Language of this page and the approval sheet","f_disclosure":"Disclosure sentence","h_disclosure":"Used in the first message of every conversation. Use {rep} and {brand}.","f_audience_timezone":"Audience timezone","h_audience_tz":"Where the people in the groups live. Posting times follow this.","f_operator_timezone":"Your timezone","h_operator_tz":"Your computer's clock. Run times below use this.","f_label":"Name","f_keywords":"Keywords (comma separated)","h_keywords":"detergent, soap, …","add_category":"Add category","h_categories_funnel":"A new category gets an empty funnel destination. Fill it in on the Funnel destinations step.","f_dest_type":"Destination type","f_dest_name":"Destination name","f_dest_url":"Invite or page URL","f_tracked":"Click-tracking URL (optional)","h_tracked":"A redirect that counts clicks per channel. Use {channel} where the channel id goes.","member_counts":"Member counts","h_member_counts":"Enter the member count of each destination every week. Joins are the change between counts.","add_count":"Add a count","f_date":"Date","f_note":"Note","dest_whatsapp":"WhatsApp group","dest_telegram":"Telegram","dest_zalo":"Zalo","dest_messenger":"Messenger","dest_website":"Website","f_lang_code":"Language code","f_reviewed":"Reviewed by a fluent speaker","f_reviewer":"Reviewer (name and date)","add_language":"Add language","h_languages":"Use codes like en, vi or es-419. Until a language is reviewed, Claude only drafts in it and marks the drafts.","h_lang_used":"A channel still uses this language.","f_scope":"Applies to","scope_company":"Company","f_fact":"Fact","h_fact":"One short, true statement","approved":"Approved","h_facts":"Tick Approved only for statements you stand behind. Unapproved facts are drafts that are not used in live posts.","no_facts":"No facts yet","h_facts_empty":"Add what you can say about your company and each category. Claude never invents prices, stock or delivery times.","add_fact":"Add fact","f_paste":"Group and fanpage URLs","h_paste":"One per line. Groups look like facebook.com/groups/…, fanpages like facebook.com/yourpage.","add_channels":"Add channels","added_n":"{n} channel(s) added. Save to keep them.","added_none":"No new Facebook URLs found.","h_join_yourself":"You join the groups yourself. Claude never joins or signs in for you.","channels_count":"{n} channel(s) in the list.","open_channels_tab":"Open the Channels tab","preset_careful":"Careful","preset_careful_d":"Recommended for the first two weeks.","preset_normal":"Normal","preset_normal_d":"A bit more activity once health has stayed green.","preset_custom":"The limits were edited by hand in the workspace. Picking a preset replaces them.","f_limit":"Limit","cap_identity_personal_max_items_per_day":"Items per day, personal profile","cap_identity_personal_max_offer_posts_per_day":"Offer posts per day, personal profile","cap_per_group_max_items_per_day":"Items per group per day","cap_content_max_link_share":"Share of items that may contain a link","cap_per_group_warmup_days":"Warm-up days after joining (no links)","h_caps":"Safety rules and Facebook pacing stay in force whatever you choose here.","page_identity":"Also allow writing as the brand Page where a channel permits it","f_daily_run":"Daily run","f_hot_replies":"Afternoon pass","f_check_hours":"Reply checks (hourly, between)","h_check_hours":"Format 20:00-07:00","h_schedule":"Times are on your computer's clock ({tz}). The schedule applies once Claude sets up the recurring jobs.","v_required":"{f} is required.","v_tz":"{f} must be a timezone name like Europe/Madrid.","v_email":"The owner email does not look like an email address.","v_cat_id":"Category id \"{id}\" must be lowercase letters, digits, - or _, and cannot be both/unknown.","v_dup":"\"{id}\" appears twice.","v_one_category":"At least one category is required.","v_https":"The destination URL for \"{id}\" must start with https://.","v_dest_prefix":"The {type} URL for \"{id}\" must start with {prefix}.","v_fb_url":"Channel {id}: the URL must be a facebook.com group or page.","v_group_url":"Channel {id}: a group URL contains /groups/. Set the kind to Fanpage for a page.","v_joined":"Channel {id}: add the date you joined, because it is active or cooling down.","v_lang_declared":"Channel {id}: language {lang} is not on the Languages step.","v_fit":"Channel {id}: pick at least one category from the catalog.","v_one_language":"At least one language is required.","v_lang_code":"\"{l}\" is not a language code like en, vi or es-419.","v_time":"{f} must be a time like 08:00.","v_hours":"Reply checks must look like 20:00-07:00.","channels_lede":"State and rules of every group and fanpage. Claude reads these before any run.","no_channels":"No channels yet","no_channels_body":"Paste group or fanpage URLs below, then join them yourself and set the state to active.","f_name":"Name","f_kind":"Kind","f_fit":"Categories","f_state":"State","f_joined":"Joined on","f_wave":"Wave","f_promo":"Own offer posts","f_links":"Links in comments","f_activity":"Activity","activity_line":"{p} posted · {o} open","kind_discussion":"Discussion","kind_board":"Ad board","kind_page":"Fanpage","state_not_joined":"Not joined","state_pending":"Join pending","state_active":"Active","state_cooldown":"Cooling down","state_retired":"Retired","tri_yes":"Yes","tri_no":"No","tri_unknown":"Unknown","no_queue":"Nothing waiting for approval","no_queue_body":"After the next daily run, the proposed items appear here with a preview.","dec_approve":"Approve","dec_edit":"Edit","dec_drop":"Drop","unmarked":"Unmarked","say_in_chat":"When you are done, tell Claude in chat:","approved_as_marked":"approved as marked","copy":"Copy","copied":"Copied","marks_are_proposals":"Marks here are proposals. Nothing is posted until you confirm in chat, and edited items are shown to you again first.","fb_justnow":"Just now","fb_preview":"Group post preview","fb_like":"Like","fb_comment":"Comment","fb_share":"Share","meaning":"Meaning in your language","why":"Why","review":"Review","risk":"Risk","draft_only":"Draft only","has_link":"Has link","edit_note":"What should change?","edit_note_ph":"New text, or what to change","type_reply":"Reply","type_comment":"Comment","type_post":"Post","type_offer_post":"Offer post","type_invite":"Invite","type_dm_invite":"Invite by DM","type_dm_inbound":"Messenger reply","dash_overview":"Overview","dash_conversations":"Conversations","dash_leads":"Leads","dash_posts":"Posts","dash_runs":"Runs and scans","dash_health":"Health","kpi_groups":"Active channels","kpi_open":"Open conversations","kpi_posted":"Items posted","kpi_leads":"Leads","funnel":"Funnel","funnel_legend":"now / reached","stage_0":"Seed","stage_1":"Engaged","stage_2":"Qualified","stage_3":"Invited","stage_4":"Joined","stage_X":"Closed","readiness":"Readiness","warmup_until":"Warm-up until","posts_read":"Posts read","f_channel":"Channel","f_stage":"Stage","f_category":"Category","f_counterpart":"Person","f_next_move":"Next move","f_unanswered":"Unanswered","f_checked":"Checked","f_contact":"Contact","f_type":"Type","f_status":"Status","f_mode":"Mode","f_identity":"Identity","f_what":"What happened","leads_note":"Only people who engaged with us, and a contact they gave us themselves. Never shared outside this page.","no_leads":"No leads yet","no_posts":"Nothing posted yet","no_runs":"No runs yet","channels_scanned":"Channels","candidates":"Candidates","queued":"Queued","scans":"Scan by channel","no_health":"No health checks yet","incidents":"Incidents","no_incidents":"No incidents","action":"Action","state_running":"Running","state_paused":"Paused","running_help":"Scheduled runs and approved posts go ahead as usual.","paused_help":"Scheduled runs, replies checks and posting are stopped. Nothing is lost; resume when ready.","pause_all":"Pause everything","resume_all":"Resume","run_now":"Ask Claude to run something now","run_now_help":"This leaves a request. Claude shows it to you in chat and runs it only after you say yes.","kind_daily-run":"Daily run","kind_hot-replies":"Afternoon pass","kind_check-replies":"Check replies","kind_health-check":"Health check","requested":"Request saved. Claude will ask you in chat.","req_pending":"Waiting","req_handled":"Handled","pause_channels":"Pause single channels","pause_channels_help":"A paused channel is skipped by scans and posting.","no_active_channels":"No active channels","schedule":"Schedule","notes_for_claude":"Notes for Claude","notes_help":"Preferences and questions. A note never makes Claude post, join or message anyone on its own, and it cannot change the safety rules.","note_ph":"For example: prefer shorter replies in the Springfield board.","send_note":"Send note","note_saved":"Note saved."},"vi":{"_name":"Tiếng Việt","app_name":"Trung tâm điều khiển Seeding","language":"Ngôn ngữ","tab_setup":"Thiết lập","tab_channels":"Kênh","tab_approvals":"Duyệt bài","tab_dashboard":"Bảng theo dõi","tab_control":"Điều khiển","tab_health_short":"Sức khỏe","readonly":"Bạn chỉ xem được, không sửa được ở đây. Hãy xin chủ sở hữu quyền chỉnh sửa.","db_unavailable":"Kho dữ liệu của trang không khả dụng ở chế độ xem này. Hãy đăng nhập hoặc nhờ chủ sở hữu chia sẻ trang cho bạn.","db_slow":"Một số dữ liệu chưa tải xong. Những gì bạn thấy có thể đã cũ.","write_failed":"Không lưu được ({code}). Hãy thử lại sau ít phút.","saved":"Đã lưu. Claude sẽ áp dụng ở lần đồng bộ tới.","save":"Lưu","next":"Bước tiếp","remove":"Xóa","unsaved":"Có thay đổi chưa lưu","fix_these":"Hãy sửa các mục sau trước khi lưu:","none_yet":"Chưa có gì","open":"Mở","done":"Xong","preview":"Xem trước","sync_ok":"Đã đồng bộ cấu hình","sync_failed":"Lần đồng bộ gần nhất bị lỗi","sync_never":"Chưa đồng bộ","paused_banner":"Mọi thứ đang tạm dừng. Chạy hằng ngày, kiểm tra phản hồi và đăng bài đều dừng cho đến khi bạn bật lại.","setup_wait_title":"Đang chờ Claude xuất bản cấu hình","setup_wait_body":"Trong Claude Code, chạy /publish-status một lần. Các biểu mẫu thiết lập sẽ tự điền từ tệp trong workspace của bạn.","step_brand":"Thương hiệu và người đại diện","step_brand_lede":"Ai là người phát ngôn, và vai trò được nêu rõ thế nào trong mỗi tin nhắn đầu tiên.","step_categories":"Nhóm hàng","step_categories_lede":"Bạn bán hoặc tìm đối tác cho cái gì. Kênh, cuộc trò chuyện và đích của phễu đều dựa vào các nhóm hàng này.","step_funnel":"Đích của phễu","step_funnel_lede":"Nơi mời người đã đủ điều kiện, mỗi nhóm hàng một đích.","step_languages":"Ngôn ngữ","step_languages_lede":"Các ngôn ngữ dùng trong nhóm. Một ngôn ngữ chỉ được dùng thật sau khi người thành thạo đã duyệt.","step_knowledge":"Thông tin","step_knowledge_lede":"Những câu ngắn mà người viết được phép dùng. Ngoài ra không có gì được coi là thông tin.","step_channels":"Kênh","step_channels_lede":"Dán URL các nhóm và fanpage Facebook bạn muốn seeding.","step_caps":"Giới hạn","step_caps_lede":"Hệ thống được làm bao nhiêu việc mỗi ngày. Nên bắt đầu thận trọng.","step_schedule":"Lịch chạy","step_schedule_lede":"Khi nào chạy hằng ngày, theo đồng hồ máy tính của chủ sở hữu.","f_brand_name":"Tên thương hiệu","f_rep_name":"Tên người đại diện","f_owner_email":"Email chủ sở hữu","h_owner_email":"Cảnh báo phản hồi và báo cáo gửi về đây.","f_ui_language":"Ngôn ngữ của trang này và bảng duyệt","f_disclosure":"Câu giới thiệu vai trò","h_disclosure":"Dùng trong tin nhắn đầu tiên của mỗi cuộc trò chuyện. Dùng {rep} và {brand}.","f_audience_timezone":"Múi giờ khán giả","h_audience_tz":"Nơi người trong nhóm sinh sống. Giờ đăng bài theo múi giờ này.","f_operator_timezone":"Múi giờ của bạn","h_operator_tz":"Đồng hồ máy tính của bạn. Giờ chạy bên dưới dùng múi giờ này.","f_label":"Tên","f_keywords":"Từ khóa (cách nhau bằng dấu phẩy)","h_keywords":"bột giặt, xà phòng, …","add_category":"Thêm nhóm hàng","h_categories_funnel":"Nhóm hàng mới có một đích phễu trống. Hãy điền ở bước Đích của phễu.","f_dest_type":"Loại đích","f_dest_name":"Tên đích","f_dest_url":"URL mời hoặc trang","f_tracked":"URL theo dõi lượt bấm (tùy chọn)","h_tracked":"Đường dẫn chuyển hướng đếm lượt bấm theo kênh. Dùng {channel} ở chỗ mã kênh.","member_counts":"Số thành viên","h_member_counts":"Mỗi tuần nhập số thành viên của từng đích. Số người tham gia là chênh lệch giữa các lần đếm.","add_count":"Thêm lần đếm","f_date":"Ngày","f_note":"Ghi chú","dest_whatsapp":"Nhóm WhatsApp","dest_telegram":"Telegram","dest_zalo":"Zalo","dest_messenger":"Messenger","dest_website":"Website","f_lang_code":"Mã ngôn ngữ","f_reviewed":"Đã được người thành thạo duyệt","f_reviewer":"Người duyệt (tên và ngày)","add_language":"Thêm ngôn ngữ","h_languages":"Dùng mã như en, vi hoặc es-419. Khi ngôn ngữ chưa được duyệt, Claude chỉ soạn nháp và đánh dấu các bản nháp.","h_lang_used":"Vẫn còn kênh dùng ngôn ngữ này.","f_scope":"Áp dụng cho","scope_company":"Công ty","f_fact":"Thông tin","h_fact":"Một câu ngắn và đúng sự thật","approved":"Đã duyệt","h_facts":"Chỉ tích Đã duyệt cho những câu bạn chịu trách nhiệm. Thông tin chưa duyệt là bản nháp và không được dùng khi đăng thật.","no_facts":"Chưa có thông tin","h_facts_empty":"Thêm những điều bạn có thể nói về công ty và từng nhóm hàng. Claude không bao giờ tự bịa giá, tồn kho hay thời gian giao hàng.","add_fact":"Thêm thông tin","f_paste":"URL nhóm và fanpage","h_paste":"Mỗi dòng một URL. Nhóm có dạng facebook.com/groups/…, fanpage có dạng facebook.com/tenpage.","add_channels":"Thêm kênh","added_n":"Đã thêm {n} kênh. Bấm Lưu để giữ lại.","added_none":"Không tìm thấy URL Facebook mới.","h_join_yourself":"Bạn tự tham gia các nhóm. Claude không bao giờ tham gia hay đăng nhập thay bạn.","channels_count":"Danh sách có {n} kênh.","open_channels_tab":"Mở tab Kênh","preset_careful":"Thận trọng","preset_careful_d":"Nên dùng trong hai tuần đầu.","preset_normal":"Bình thường","preset_normal_d":"Hoạt động nhiều hơn một chút khi sức khỏe tài khoản luôn xanh.","preset_custom":"Các giới hạn đã được sửa tay trong workspace. Chọn một mức có sẵn sẽ thay thế chúng.","f_limit":"Giới hạn","cap_identity_personal_max_items_per_day":"Số mục mỗi ngày, trang cá nhân","cap_identity_personal_max_offer_posts_per_day":"Số bài chào hàng mỗi ngày, trang cá nhân","cap_per_group_max_items_per_day":"Số mục mỗi nhóm mỗi ngày","cap_content_max_link_share":"Tỷ lệ mục được phép có liên kết","cap_per_group_warmup_days":"Số ngày làm quen sau khi vào nhóm (không liên kết)","h_caps":"Quy tắc an toàn và nhịp đăng của Facebook luôn có hiệu lực dù bạn chọn gì ở đây.","page_identity":"Cho phép viết bằng Page của thương hiệu ở kênh cho phép","f_daily_run":"Chạy hằng ngày","f_hot_replies":"Lượt buổi chiều","f_check_hours":"Kiểm tra phản hồi (mỗi giờ, trong khoảng)","h_check_hours":"Định dạng 20:00-07:00","h_schedule":"Giờ theo đồng hồ máy tính của bạn ({tz}). Lịch có hiệu lực khi Claude thiết lập các tác vụ định kỳ.","v_required":"Cần nhập {f}.","v_tz":"{f} phải là tên múi giờ như Asia/Ho_Chi_Minh.","v_email":"Email chủ sở hữu có vẻ không đúng định dạng.","v_cat_id":"Mã nhóm hàng \"{id}\" chỉ gồm chữ thường, số, - hoặc _, và không được là both/unknown.","v_dup":"\"{id}\" xuất hiện hai lần.","v_one_category":"Cần ít nhất một nhóm hàng.","v_https":"URL đích của \"{id}\" phải bắt đầu bằng https://.","v_dest_prefix":"URL {type} của \"{id}\" phải bắt đầu bằng {prefix}.","v_fb_url":"Kênh {id}: URL phải là nhóm hoặc trang trên facebook.com.","v_group_url":"Kênh {id}: URL nhóm có chứa /groups/. Với trang, hãy đặt loại là Fanpage.","v_joined":"Kênh {id}: hãy nhập ngày bạn tham gia, vì kênh đang hoạt động hoặc nghỉ tạm.","v_lang_declared":"Kênh {id}: ngôn ngữ {lang} chưa có ở bước Ngôn ngữ.","v_fit":"Kênh {id}: chọn ít nhất một nhóm hàng trong danh mục.","v_one_language":"Cần ít nhất một ngôn ngữ.","v_lang_code":"\"{l}\" không phải mã ngôn ngữ như en, vi hoặc es-419.","v_time":"{f} phải là giờ dạng 08:00.","v_hours":"Kiểm tra phản hồi phải có dạng 20:00-07:00.","channels_lede":"Trạng thái và quy tắc của từng nhóm, fanpage. Claude đọc các mục này trước mỗi lần chạy.","no_channels":"Chưa có kênh nào","no_channels_body":"Dán URL nhóm hoặc fanpage bên dưới, tự tham gia rồi đặt trạng thái là Đang hoạt động.","f_name":"Tên","f_kind":"Loại","f_fit":"Nhóm hàng","f_state":"Trạng thái","f_joined":"Ngày tham gia","f_wave":"Đợt","f_promo":"Bài chào hàng riêng","f_links":"Liên kết trong bình luận","f_activity":"Hoạt động","activity_line":"{p} đã đăng · {o} đang mở","kind_discussion":"Thảo luận","kind_board":"Bảng rao vặt","kind_page":"Fanpage","state_not_joined":"Chưa tham gia","state_pending":"Chờ duyệt vào nhóm","state_active":"Đang hoạt động","state_cooldown":"Nghỉ tạm","state_retired":"Ngừng dùng","tri_yes":"Có","tri_no":"Không","tri_unknown":"Chưa rõ","no_queue":"Chưa có mục nào chờ duyệt","no_queue_body":"Sau lần chạy hằng ngày tới, các mục đề xuất sẽ hiện ở đây kèm bản xem trước.","dec_approve":"Duyệt","dec_edit":"Sửa","dec_drop":"Bỏ","unmarked":"Chưa đánh dấu","say_in_chat":"Khi xong, nhắn Claude trong chat:","approved_as_marked":"đã duyệt như đã đánh dấu","copy":"Sao chép","copied":"Đã sao chép","marks_are_proposals":"Các đánh dấu ở đây chỉ là đề xuất. Chưa có gì được đăng cho đến khi bạn xác nhận trong chat, và mục đã sửa sẽ được hiện lại cho bạn trước.","fb_justnow":"Vừa xong","fb_preview":"Xem trước bài đăng nhóm","fb_like":"Thích","fb_comment":"Bình luận","fb_share":"Chia sẻ","meaning":"Ý nghĩa bằng ngôn ngữ của bạn","why":"Lý do","review":"Kiểm duyệt","risk":"Rủi ro","draft_only":"Chỉ bản nháp","has_link":"Có liên kết","edit_note":"Cần đổi gì?","edit_note_ph":"Nội dung mới, hoặc điều cần đổi","type_reply":"Trả lời","type_comment":"Bình luận","type_post":"Bài đăng","type_offer_post":"Bài chào hàng","type_invite":"Lời mời","type_dm_invite":"Mời qua tin nhắn riêng","type_dm_inbound":"Trả lời Messenger","dash_overview":"Tổng quan","dash_conversations":"Cuộc trò chuyện","dash_leads":"Khách tiềm năng","dash_posts":"Bài đã đăng","dash_runs":"Lượt chạy và quét","dash_health":"Sức khỏe","kpi_groups":"Kênh đang hoạt động","kpi_open":"Cuộc trò chuyện đang mở","kpi_posted":"Mục đã đăng","kpi_leads":"Khách tiềm năng","funnel":"Phễu","funnel_legend":"hiện tại / đã đạt","stage_0":"Gieo mầm","stage_1":"Có tương tác","stage_2":"Đủ điều kiện","stage_3":"Đã mời","stage_4":"Đã tham gia","stage_X":"Đã đóng","readiness":"Mức sẵn sàng","warmup_until":"Làm quen đến","posts_read":"Bài đã đọc","f_channel":"Kênh","f_stage":"Giai đoạn","f_category":"Nhóm hàng","f_counterpart":"Người","f_next_move":"Bước tiếp theo","f_unanswered":"Chưa phản hồi","f_checked":"Kiểm tra lúc","f_contact":"Liên hệ","f_type":"Loại","f_status":"Trạng thái","f_mode":"Chế độ","f_identity":"Danh tính","f_what":"Sự việc","leads_note":"Chỉ gồm người đã tương tác với chúng ta và thông tin liên hệ họ tự cung cấp. Không chia sẻ ra ngoài trang này.","no_leads":"Chưa có khách tiềm năng","no_posts":"Chưa đăng gì","no_runs":"Chưa có lượt chạy","channels_scanned":"Kênh","candidates":"Ứng viên","queued":"Đã xếp hàng","scans":"Quét theo kênh","no_health":"Chưa kiểm tra sức khỏe","incidents":"Sự cố","no_incidents":"Không có sự cố","action":"Xử lý","state_running":"Đang chạy","state_paused":"Tạm dừng","running_help":"Các lượt chạy theo lịch và bài đã duyệt vẫn diễn ra bình thường.","paused_help":"Lượt chạy theo lịch, kiểm tra phản hồi và đăng bài đã dừng. Không mất gì; bật lại khi sẵn sàng.","pause_all":"Tạm dừng tất cả","resume_all":"Bật lại","run_now":"Nhờ Claude chạy ngay","run_now_help":"Việc này chỉ để lại một yêu cầu. Claude sẽ hỏi bạn trong chat và chỉ chạy sau khi bạn đồng ý.","kind_daily-run":"Chạy hằng ngày","kind_hot-replies":"Lượt buổi chiều","kind_check-replies":"Kiểm tra phản hồi","kind_health-check":"Kiểm tra sức khỏe","requested":"Đã lưu yêu cầu. Claude sẽ hỏi bạn trong chat.","req_pending":"Đang chờ","req_handled":"Đã xử lý","pause_channels":"Tạm dừng từng kênh","pause_channels_help":"Kênh bị tạm dừng sẽ không được quét hay đăng.","no_active_channels":"Chưa có kênh đang hoạt động","schedule":"Lịch chạy","notes_for_claude":"Ghi chú cho Claude","notes_help":"Sở thích và câu hỏi. Ghi chú không bao giờ khiến Claude tự đăng, tham gia hay nhắn tin cho ai, và không thể thay đổi quy tắc an toàn.","note_ph":"Ví dụ: ưu tiên câu trả lời ngắn hơn ở bảng Springfield.","send_note":"Gửi ghi chú","note_saved":"Đã lưu ghi chú."},"es":{"_name":"Español","app_name":"Centro de control de seeding","language":"Idioma","tab_setup":"Configuración","tab_channels":"Canales","tab_approvals":"Aprobaciones","tab_dashboard":"Panel","tab_control":"Control","tab_health_short":"Salud","readonly":"Aquí solo puedes mirar, no cambiar nada. Pide al propietario permiso de edición.","db_unavailable":"El almacén de datos de la página no está disponible en esta vista. Inicia sesión o pide al propietario que te comparta la página.","db_slow":"Algunos datos aún no han cargado. Lo que ves puede estar desactualizado.","write_failed":"No se pudo guardar ({code}). Inténtalo de nuevo en un momento.","saved":"Guardado. Claude lo aplica en la próxima sincronización.","save":"Guardar","next":"Siguiente paso","remove":"Quitar","unsaved":"Cambios sin guardar","fix_these":"Corrige esto antes de guardar:","none_yet":"Todavía no hay nada","open":"Abrir","done":"Hecho","preview":"Vista previa","sync_ok":"Configuración sincronizada","sync_failed":"La última sincronización falló","sync_never":"Aún sin sincronizar","paused_banner":"Todo está en pausa. Las ejecuciones diarias, la revisión de respuestas y las publicaciones están detenidas hasta que reanudes.","setup_wait_title":"Esperando a que Claude publique la configuración","setup_wait_body":"En Claude Code, ejecuta /publish-status una vez. Los formularios se rellenan con los archivos de tu espacio de trabajo.","step_brand":"Marca y representante","step_brand_lede":"Quién habla y cómo se declara su rol en cada primer mensaje.","step_categories":"Categorías","step_categories_lede":"Lo que vendes o para lo que buscas socios. Canales, conversaciones y destinos del embudo se refieren a ellas.","step_funnel":"Destinos del embudo","step_funnel_lede":"A dónde se invita a una persona cualificada, un destino por categoría.","step_languages":"Idiomas","step_languages_lede":"Idiomas usados en los grupos. Un idioma se usa en vivo solo después de que lo revise alguien que lo domine.","step_knowledge":"Datos","step_knowledge_lede":"Frases cortas que el redactor puede usar. Nada más cuenta como dato.","step_channels":"Canales","step_channels_lede":"Pega las URL de los grupos y fanpages de Facebook donde quieres hacer seeding.","step_caps":"Límites","step_caps_lede":"Cuánto puede hacer el sistema al día. Empieza con cautela.","step_schedule":"Horario","step_schedule_lede":"Cuándo se hacen las ejecuciones diarias, según el reloj del ordenador del propietario.","f_brand_name":"Nombre de la marca","f_rep_name":"Nombre del representante","f_owner_email":"Correo del propietario","h_owner_email":"Aquí llegan las alertas de respuestas y los informes.","f_ui_language":"Idioma de esta página y de la hoja de aprobación","f_disclosure":"Frase de presentación","h_disclosure":"Se usa en el primer mensaje de cada conversación. Usa {rep} y {brand}.","f_audience_timezone":"Zona horaria de la audiencia","h_audience_tz":"Dónde viven las personas de los grupos. Las horas de publicación siguen esta zona.","f_operator_timezone":"Tu zona horaria","h_operator_tz":"El reloj de tu ordenador. Las horas de ejecución de abajo usan esta zona.","f_label":"Nombre","f_keywords":"Palabras clave (separadas por comas)","h_keywords":"detergente, jabón, …","add_category":"Añadir categoría","h_categories_funnel":"Una categoría nueva recibe un destino de embudo vacío. Rellénalo en el paso Destinos del embudo.","f_dest_type":"Tipo de destino","f_dest_name":"Nombre del destino","f_dest_url":"URL de invitación o de la página","f_tracked":"URL de seguimiento de clics (opcional)","h_tracked":"Una redirección que cuenta los clics por canal. Usa {channel} donde va el id del canal.","member_counts":"Recuento de miembros","h_member_counts":"Anota cada semana los miembros de cada destino. Las altas son la diferencia entre recuentos.","add_count":"Añadir recuento","f_date":"Fecha","f_note":"Nota","dest_whatsapp":"Grupo de WhatsApp","dest_telegram":"Telegram","dest_zalo":"Zalo","dest_messenger":"Messenger","dest_website":"Sitio web","f_lang_code":"Código de idioma","f_reviewed":"Revisado por un hablante fluido","f_reviewer":"Revisor (nombre y fecha)","add_language":"Añadir idioma","h_languages":"Usa códigos como en, vi o es-419. Mientras un idioma no esté revisado, Claude solo redacta borradores en él y los marca.","h_lang_used":"Algún canal todavía usa este idioma.","f_scope":"Se aplica a","scope_company":"Empresa","f_fact":"Dato","h_fact":"Una frase corta y verdadera","approved":"Aprobado","h_facts":"Marca Aprobado solo en las frases que respaldas. Los datos sin aprobar son borradores y no se usan en publicaciones reales.","no_facts":"Aún no hay datos","h_facts_empty":"Añade lo que puedes decir de tu empresa y de cada categoría. Claude nunca inventa precios, existencias ni plazos de entrega.","add_fact":"Añadir dato","f_paste":"URL de grupos y fanpages","h_paste":"Una por línea. Los grupos son como facebook.com/groups/…, las fanpages como facebook.com/tupagina.","add_channels":"Añadir canales","added_n":"Se añadieron {n} canal(es). Guarda para conservarlos.","added_none":"No se encontraron URL de Facebook nuevas.","h_join_yourself":"Tú te unes a los grupos. Claude nunca se une ni inicia sesión por ti.","channels_count":"Hay {n} canal(es) en la lista.","open_channels_tab":"Abrir la pestaña Canales","preset_careful":"Prudente","preset_careful_d":"Recomendado las dos primeras semanas.","preset_normal":"Normal","preset_normal_d":"Algo más de actividad cuando la salud se mantiene en verde.","preset_custom":"Los límites se editaron a mano en el espacio de trabajo. Elegir un ajuste los reemplaza.","f_limit":"Límite","cap_identity_personal_max_items_per_day":"Elementos al día, perfil personal","cap_identity_personal_max_offer_posts_per_day":"Publicaciones de oferta al día, perfil personal","cap_per_group_max_items_per_day":"Elementos por grupo al día","cap_content_max_link_share":"Proporción de elementos que pueden llevar enlace","cap_per_group_warmup_days":"Días de calentamiento tras unirse (sin enlaces)","h_caps":"Las reglas de seguridad y el ritmo de Facebook siguen vigentes elijas lo que elijas aquí.","page_identity":"Permitir también escribir como la Página de la marca donde el canal lo permita","f_daily_run":"Ejecución diaria","f_hot_replies":"Pasada de la tarde","f_check_hours":"Revisión de respuestas (cada hora, entre)","h_check_hours":"Formato 20:00-07:00","h_schedule":"Las horas siguen el reloj de tu ordenador ({tz}). El horario rige cuando Claude configure las tareas periódicas.","v_required":"Falta {f}.","v_tz":"{f} debe ser un nombre de zona horaria como Europe/Madrid.","v_email":"El correo del propietario no parece una dirección válida.","v_cat_id":"El id de categoría \"{id}\" debe tener minúsculas, dígitos, - o _, y no puede ser both ni unknown.","v_dup":"\"{id}\" aparece dos veces.","v_one_category":"Se necesita al menos una categoría.","v_https":"La URL de destino de \"{id}\" debe empezar por https://.","v_dest_prefix":"La URL de {type} de \"{id}\" debe empezar por {prefix}.","v_fb_url":"Canal {id}: la URL debe ser un grupo o una página de facebook.com.","v_group_url":"Canal {id}: la URL de un grupo contiene /groups/. Para una página, elige el tipo Fanpage.","v_joined":"Canal {id}: indica la fecha en que te uniste, porque está activo o en pausa.","v_lang_declared":"Canal {id}: el idioma {lang} no está en el paso Idiomas.","v_fit":"Canal {id}: elige al menos una categoría del catálogo.","v_one_language":"Se necesita al menos un idioma.","v_lang_code":"\"{l}\" no es un código de idioma como en, vi o es-419.","v_time":"{f} debe ser una hora como 08:00.","v_hours":"La revisión de respuestas debe tener el formato 20:00-07:00.","channels_lede":"Estado y reglas de cada grupo y fanpage. Claude los lee antes de cada ejecución.","no_channels":"Aún no hay canales","no_channels_body":"Pega abajo las URL de grupos o fanpages, únete tú mismo y pon el estado en Activo.","f_name":"Nombre","f_kind":"Tipo","f_fit":"Categorías","f_state":"Estado","f_joined":"Unido el","f_wave":"Oleada","f_promo":"Publicaciones de oferta propias","f_links":"Enlaces en comentarios","f_activity":"Actividad","activity_line":"{p} publicados · {o} abiertos","kind_discussion":"Debate","kind_board":"Tablón de anuncios","kind_page":"Fanpage","state_not_joined":"Sin unirse","state_pending":"Solicitud pendiente","state_active":"Activo","state_cooldown":"En pausa","state_retired":"Retirado","tri_yes":"Sí","tri_no":"No","tri_unknown":"Se desconoce","no_queue":"Nada esperando aprobación","no_queue_body":"Tras la próxima ejecución diaria, los elementos propuestos aparecen aquí con una vista previa.","dec_approve":"Aprobar","dec_edit":"Editar","dec_drop":"Descartar","unmarked":"Sin marcar","say_in_chat":"Cuando termines, dile a Claude en el chat:","approved_as_marked":"aprobado como marqué","copy":"Copiar","copied":"Copiado","marks_are_proposals":"Las marcas de aquí son propuestas. No se publica nada hasta que confirmes en el chat, y los elementos editados se te muestran de nuevo antes.","fb_justnow":"Ahora mismo","fb_preview":"Vista previa de publicación en grupo","fb_like":"Me gusta","fb_comment":"Comentar","fb_share":"Compartir","meaning":"Significado en tu idioma","why":"Motivo","review":"Revisión","risk":"Riesgo","draft_only":"Solo borrador","has_link":"Lleva enlace","edit_note":"¿Qué hay que cambiar?","edit_note_ph":"Texto nuevo, o qué cambiar","type_reply":"Respuesta","type_comment":"Comentario","type_post":"Publicación","type_offer_post":"Publicación de oferta","type_invite":"Invitación","type_dm_invite":"Invitación por mensaje privado","type_dm_inbound":"Respuesta en Messenger","dash_overview":"Resumen","dash_conversations":"Conversaciones","dash_leads":"Contactos","dash_posts":"Publicaciones","dash_runs":"Ejecuciones y escaneos","dash_health":"Salud","kpi_groups":"Canales activos","kpi_open":"Conversaciones abiertas","kpi_posted":"Elementos publicados","kpi_leads":"Contactos","funnel":"Embudo","funnel_legend":"ahora / alcanzado","stage_0":"Semilla","stage_1":"Con interacción","stage_2":"Cualificado","stage_3":"Invitado","stage_4":"Unido","stage_X":"Cerrado","readiness":"Preparación","warmup_until":"Calentamiento hasta","posts_read":"Publicaciones leídas","f_channel":"Canal","f_stage":"Etapa","f_category":"Categoría","f_counterpart":"Persona","f_next_move":"Próximo paso","f_unanswered":"Sin respuesta","f_checked":"Revisado","f_contact":"Contacto","f_type":"Tipo","f_status":"Estado","f_mode":"Modo","f_identity":"Identidad","f_what":"Qué pasó","leads_note":"Solo personas que interactuaron con nosotros y un contacto que ellas mismas nos dieron. Nunca se comparte fuera de esta página.","no_leads":"Aún no hay contactos","no_posts":"Aún no se ha publicado nada","no_runs":"Aún no hay ejecuciones","channels_scanned":"Canales","candidates":"Candidatos","queued":"En cola","scans":"Escaneo por canal","no_health":"Aún no hay controles de salud","incidents":"Incidentes","no_incidents":"Sin incidentes","action":"Acción","state_running":"En marcha","state_paused":"En pausa","running_help":"Las ejecuciones programadas y las publicaciones aprobadas siguen con normalidad.","paused_help":"Las ejecuciones programadas, la revisión de respuestas y las publicaciones están detenidas. No se pierde nada; reanuda cuando quieras.","pause_all":"Pausar todo","resume_all":"Reanudar","run_now":"Pedir a Claude que ejecute algo ahora","run_now_help":"Esto deja una solicitud. Claude te la muestra en el chat y la ejecuta solo si dices que sí.","kind_daily-run":"Ejecución diaria","kind_hot-replies":"Pasada de la tarde","kind_check-replies":"Revisar respuestas","kind_health-check":"Control de salud","requested":"Solicitud guardada. Claude te preguntará en el chat.","req_pending":"En espera","req_handled":"Atendida","pause_channels":"Pausar canales sueltos","pause_channels_help":"Un canal en pausa se omite en los escaneos y en las publicaciones.","no_active_channels":"No hay canales activos","schedule":"Horario","notes_for_claude":"Notas para Claude","notes_help":"Preferencias y preguntas. Una nota nunca hace que Claude publique, se una o escriba a alguien por su cuenta, y no puede cambiar las reglas de seguridad.","note_ph":"Por ejemplo: prefiero respuestas más cortas en el tablón de Springfield.","send_note":"Enviar nota","note_saved":"Nota guardada."}};
+</script>
+<script>
+"use strict";
+/* ---------------------------------------------------------------- basics */
+const TABS = ["setup", "channels", "approvals", "dashboard", "control"];
+const COLS = ["config", "summary", "groups", "runs", "scans", "conversations", "queue", "funnel", "posts", "health",
+  "incidents", "readiness", "knowledge", "memberCounts", "links", "leads", "approvals", "control", "runRequests", "notes"];
+const STAGES = ["0", "1", "2", "3", "4", "X"];
+const DEST_TYPES = ["whatsapp", "telegram", "zalo", "messenger", "website"];
+const DEST_PREFIX = { whatsapp: "https://chat.whatsapp.com/", telegram: "https://t.me/", zalo: "https://zalo.me/", messenger: "https://m.me/" };
+const KINDS = ["discussion", "board", "page"];
+const STATES = ["not_joined", "pending", "active", "cooldown", "retired"];
+const WAVES = ["pilot", "w2", "w3", "w4"];
+const TRI = ["yes", "no", "unknown"];
+const REQUEST_KINDS = ["daily-run", "hot-replies", "check-replies", "health-check"];
+const PRESETS = {
+  careful: { "identity.personal.max_items_per_day": 8, "identity.personal.max_offer_posts_per_day": 2, "per_group.max_items_per_day": 2, "content.max_link_share": 0.30, "per_group.warmup_days": 14 },
+  normal: { "identity.personal.max_items_per_day": 12, "identity.personal.max_offer_posts_per_day": 3, "per_group.max_items_per_day": 3, "content.max_link_share": 0.40, "per_group.warmup_days": 10 },
+};
+const LANG_RE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+const FB_RE = /^https:\/\/(www\.|m\.|web\.)?facebook\.com\/\S+/;
+
+let lang = "en";
+function t(k, v) {
+  let s = (I18N[lang] && I18N[lang][k]) ?? (I18N.en && I18N.en[k]) ?? k;
+  if (v) for (const [a, b] of Object.entries(v)) s = s.split("{" + a + "}").join(b);
+  return s;
+}
+function el(tag, a, ...kids) {
+  const n = document.createElement(tag);
+  if (a) for (const [k, v] of Object.entries(a)) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (k in n && k !== "list" && k !== "form") n[k] = v;
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) { if (c == null || c === false) continue; n.append(c.nodeType ? c : document.createTextNode(String(c))); }
+  return n;
+}
+const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const today = () => new Date().toISOString().slice(0, 10);
+const slug = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const get = (obj, path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+const validTz = (z) => { try { new Intl.DateTimeFormat("en", { timeZone: z }); return true; } catch { return false; } };
+
+/* ---------------------------------------------------------------- state */
+const D = {}; COLS.forEach((c) => (D[c] = []));
+const loaded = {};
+let db = null, userApi = null, myId = "", canWrite = false, dbError = "";
+let tab = "setup", step = 0, dashSection = "overview";
+const draft = {}; const dirty = new Set();
+let formErrors = [];
+const cfg = (id) => D.config.find((d) => d.id === id);
+const draftOf = (id) => { if (!(id in draft)) draft[id] = cfg(id) ? clone(cfg(id)) : null; return draft[id]; };
+const one = (c, id) => D[c].find((d) => d.id === id);
+const brandDoc = () => draftOf("brand") || cfg("brand") || {};
+const summary = () => D.summary.find((d) => d.id === "summary") || {};
+
+function pickLang() {
+  if (window.__SSK_LANG) return window.__SSK_LANG;   // set only by the local test stub
+  let l = "";
+  try { l = localStorage.getItem("ssk-lang") || ""; } catch (e) { /* no storage */ }
+  if (!I18N[l]) l = (cfg("brand") || {}).ui_language || summary().ui_language || "";
+  if (!I18N[l]) l = (navigator.language || "en").slice(0, 2);
+  return I18N[l] ? l : "en";
+}
+
+let toastTimer;
+function toast(msg, bad) {
+  document.querySelectorAll(".toast").forEach((n) => n.remove());
+  const n = el("div", { class: "toast" + (bad ? " bad" : ""), role: "status", text: msg });
+  document.body.append(n);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => n.remove(), 3500);
+}
+
+async function write(path, data) {
+  if (!db || !canWrite) { toast(t("readonly"), true); return false; }
+  try { await db.doc(path).set(data); return true; }
+  catch (e) { toast(t("write_failed", { code: (e && e.code) || "error" }), true); return false; }
+}
+async function remove(path) {
+  if (!db || !canWrite) return false;
+  try { await db.doc(path).delete(); return true; } catch (e) { toast(t("write_failed", { code: (e && e.code) || "error" }), true); return false; }
+}
+const stamp = () => ({ _updated: new Date().toISOString(), _updatedBy: myId });
+async function saveDocs(ids) {
+  let ok = true;
+  for (const id of ids) {
+    const d = draft[id]; if (!d || !dirty.has(id)) continue;
+    const out = { ...clone(d), ...stamp() };
+    if (await write("config/" + id, out)) { dirty.delete(id); delete draft[id]; } else ok = false;
+  }
+  if (ok) toast(t("saved"));
+  scheduleRender();
+  return ok;
+}
+const markDirty = (id) => { dirty.add(id); const b = document.getElementById("dirtyflag"); if (b) b.hidden = false; };
+
+/* ---------------------------------------------------------------- data wiring */
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; renderApp(); });
+}
+function subscribe(c) {
+  db.collection(c).onSnapshot((snap) => {
+    D[c] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    if (!snap.metadata.fromCache) loaded[c] = true;
+    if (c === "config") for (const id of Object.keys(draft)) if (!dirty.has(id)) delete draft[id];
+    lang = pickLang();
+    scheduleRender();
+  }, (e) => { dbError = (e && e.code) || "error"; scheduleRender(); });
+}
+async function boot() {
+  lang = pickLang();
+  const hash = location.hash.replace("#", "");
+  if (TABS.includes(hash)) tab = hash;
+  renderApp();
+  try {
+    userApi = await claude.use("user");
+    db = await claude.use("db");
+  } catch (e) { db = null; }
+  if (userApi) {
+    try { myId = (await userApi.id()) || ""; } catch (e) { myId = ""; }
+    try { canWrite = userApi.canEdit(); } catch (e) { canWrite = false; }
+  }
+  if (!db) { dbError = "unavailable"; renderApp(); return; }
+  COLS.forEach(subscribe);
+  setTimeout(() => { if (!COLS.every((c) => loaded[c])) { dbError = dbError || "slow"; scheduleRender(); } }, 10000);
+  renderApp();
+}
+
+/* ---------------------------------------------------------------- shell */
+function renderApp() {
+  const app = document.getElementById("app");
+  if (!app) return;
+  const active = document.activeElement;
+  if (tab === "setup" && active && active !== document.body && app.querySelector(".panel") && app.querySelector(".panel").contains(active)
+      && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;   // do not disturb typing
+  document.documentElement.lang = lang;
+  clear(app);
+  const sum = summary(); const b = cfg("brand") || {};
+  const state = one("control", "state") || {};
+  const sync = one("control", "syncResult");
+  const pending = D.queue.length ? D.queue.filter((q) => !one("approvals", q.id)).length : 0;
+  app.append(el("header", { class: "top" },
+    el("div", { class: "brandmark" }, el("h1", { text: b.brand_name || sum.brand_name || t("app_name") }), el("span", { class: "tag", text: t("app_name") })),
+    el("div", { class: "top-tools" },
+      sync ? el("span", { class: "syncpill " + (sync.ok ? "ok" : "bad"), text: (sync.ok ? t("sync_ok") : t("sync_failed")) + (sync.at ? " · " + String(sync.at).slice(0, 16).replace("T", " ") : "") }) : el("span", { class: "syncpill", text: t("sync_never") }),
+      el("label", { class: "row" }, el("span", { class: "mute", text: t("language") }),
+        el("select", { id: "langsel", "aria-label": t("language"), onchange: (e) => { lang = e.target.value; try { localStorage.setItem("ssk-lang", lang); } catch (x) { /* ignore */ } renderApp(); } },
+          Object.keys(I18N).map((l) => el("option", { value: l, selected: l === lang, text: I18N[l]._name || l })))))));
+  if (state.paused) app.append(el("div", { class: "banner paused", role: "status", text: t("paused_banner") }));
+  if (dbError && dbError !== "slow") app.append(el("div", { class: "banner bad", text: t("db_unavailable") }));
+  else if (dbError === "slow") app.append(el("div", { class: "banner info", text: t("db_slow") }));
+  else if (db && !canWrite) app.append(el("div", { class: "banner info", text: t("readonly") }));
+  const names = { setup: t("tab_setup"), channels: t("tab_channels"), approvals: t("tab_approvals"), dashboard: t("tab_dashboard"), control: t("tab_control") };
+  app.append(el("nav", { class: "tabs", role: "tablist" }, TABS.map((id) =>
+    el("button", { class: "tab", role: "tab", id: "tab-" + id, "aria-selected": String(tab === id), onclick: () => { formErrors = []; tab = id; try { history.replaceState(null, "", "#" + id); } catch (e) { /* ignore */ } renderApp(); } },
+      names[id], id === "approvals" && pending ? el("span", { class: "count", text: pending }) : null))));
+  const main = el("main", { role: "tabpanel", "aria-labelledby": "tab-" + tab });
+  app.append(main);
+  ({ setup: viewSetup, channels: viewChannels, approvals: viewApprovals, dashboard: viewDashboard, control: viewControl })[tab](main);
+}
+
+/* ---------------------------------------------------------------- shared widgets */
+const emptyState = (title, body) => el("div", { class: "empty" }, el("b", { text: title }), body);
+const pill = (text, cls) => el("span", { class: "pill " + (cls || ""), text });
+function field(label, input, hint) { return el("label", { class: "field" }, el("span", { class: "lbl", text: label }), input, hint ? el("span", { class: "hint", text: hint }) : null); }
+function binder(docId) {
+  const change = () => markDirty(docId);
+  return {
+    text(obj, key, o = {}) { return el("input", { type: o.type || "text", value: obj[key] ?? "", placeholder: o.ph || "", disabled: !canWrite || o.disabled, list: o.list, oninput: (e) => { obj[key] = o.num ? Number(e.target.value) : e.target.value; change(); } }); },
+    area(obj, key, o = {}) { return el("textarea", { value: obj[key] ?? "", placeholder: o.ph || "", rows: o.rows || 3, disabled: !canWrite, oninput: (e) => { obj[key] = e.target.value; change(); } }); },
+    select(obj, key, options, label) { return el("select", { disabled: !canWrite, onchange: (e) => { obj[key] = e.target.value; change(); } }, options.map((v) => el("option", { value: v, selected: obj[key] === v, text: label ? label(v) : v }))); },
+    check(obj, key, text) { return el("label", { class: "chk" }, el("input", { type: "checkbox", checked: !!obj[key], disabled: !canWrite, onchange: (e) => { obj[key] = e.target.checked; change(); } }), el("span", { text })); },
+    csv(obj, key, o = {}) { return el("input", { type: "text", value: (obj[key] || []).join(", "), placeholder: o.ph || "", disabled: !canWrite, oninput: (e) => { obj[key] = e.target.value.split(",").map((s) => s.trim()).filter(Boolean); change(); } }); },
+  };
+}
+function table(cols, rows, o = {}) {
+  if (!rows.length) return emptyState(o.emptyTitle || t("none_yet"), o.emptyBody || "");
+  return el("div", { class: "tbl-wrap" }, el("table", { class: "tbl" },
+    el("thead", null, el("tr", null, cols.map((c) => el("th", { class: c.num ? "num" : "", text: c.label })))),
+    el("tbody", null, rows.map((r) => el("tr", null, cols.map((c) => el("td", { class: c.num ? "num" : "" }, c.render ? c.render(r) : (r[c.key] ?? ""))))))));
+}
+const link = (url, text) => (/^https?:\/\//.test(url || "") ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text: text || url }) : (text || url || ""));
+const stageName = (s) => t("stage_" + s);
+function saveBar(ids, extra, checkIds, before) {
+  return el("div", null, errorBox(), el("div", { class: "savebar" },
+    el("span", { id: "dirtyflag", class: "unsaved", hidden: !ids.some((i) => dirty.has(i)), text: t("unsaved") }),
+    el("div", { class: "row" }, extra, el("button", { class: "btn primary", disabled: !canWrite, onclick: () => {
+      const errs = (checkIds || ids).flatMap((i) => validateDoc(i));
+      if (errs.length) { showErrors(errs); return; }
+      formErrors = [];
+      if (before) before();
+      saveDocs(ids);
+    }, text: t("save") }))));
+}
+function showErrors(errs) { formErrors = errs; renderApp(); const b = document.querySelector(".errors"); if (b) b.scrollIntoView({ block: "nearest" }); }
+const errorBox = () => (formErrors.length ? el("div", { class: "errors", role: "alert" }, el("b", { text: t("fix_these") }), el("ul", null, formErrors.map((e) => el("li", { text: e })))) : null);
+
+/* ---------------------------------------------------------------- validation (mirrors scripts/validate.py; the script has the last word) */
+function validateDoc(id) {
+  const d = draftOf(id); const e = [];
+  if (!d) return e;
+  if (id === "brand") {
+    for (const k of ["brand_name", "rep_name", "disclosure"]) if (!String(d[k] || "").trim()) e.push(t("v_required", { f: t("f_" + k) }));
+    for (const k of ["audience_timezone", "operator_timezone"]) if (!validTz(d[k] || "")) e.push(t("v_tz", { f: t("f_" + k) }));
+    if (d.owner_email && !/^\S+@\S+\.\S+$/.test(d.owner_email)) e.push(t("v_email"));
+  }
+  if (id === "catalog") {
+    const seen = new Set();
+    (d.categories || []).forEach((c) => {
+      if (!/^[a-z][a-z0-9_-]*$/.test(c.id || "") || ["both", "unknown"].includes(c.id)) e.push(t("v_cat_id", { id: c.id || "?" }));
+      if (seen.has(c.id)) e.push(t("v_dup", { id: c.id })); seen.add(c.id);
+      if (!String(c.label || "").trim()) e.push(t("v_required", { f: t("f_label") + " (" + c.id + ")" }));
+    });
+    if (!(d.categories || []).length) e.push(t("v_one_category"));
+  }
+  if (id === "funnel") {
+    Object.entries(d.destinations || {}).forEach(([cid, x]) => {
+      const url = String(x.url || "");
+      if (!url.startsWith("https://")) e.push(t("v_https", { id: cid }));
+      else if (DEST_PREFIX[x.type] && !url.startsWith(DEST_PREFIX[x.type])) e.push(t("v_dest_prefix", { id: cid, type: x.type, prefix: DEST_PREFIX[x.type] }));
+    });
+  }
+  if (id === "channels") {
+    const langs = new Set(Object.keys((draftOf("languages") || {}).languages || {}));
+    const cats = new Set(((draftOf("catalog") || {}).categories || []).map((c) => c.id));
+    const seen = new Set();
+    (d.channels || []).forEach((c) => {
+      if (seen.has(c.id)) e.push(t("v_dup", { id: c.id })); seen.add(c.id);
+      if (!FB_RE.test(c.url || "")) e.push(t("v_fb_url", { id: c.id }));
+      else if (c.kind !== "page" && !c.url.includes("/groups/")) e.push(t("v_group_url", { id: c.id }));
+      if (["active", "cooldown"].includes(c.state) && !/^\d{4}-\d{2}-\d{2}$/.test(c.joined_on || "")) e.push(t("v_joined", { id: c.id }));
+      if (langs.size && !langs.has(c.language)) e.push(t("v_lang_declared", { id: c.id, lang: c.language }));
+      if (!(c.fit || []).length || (c.fit || []).some((f) => !cats.has(f))) e.push(t("v_fit", { id: c.id }));
+    });
+  }
+  if (id === "languages") {
+    const ls = Object.keys(d.languages || {});
+    if (!ls.length) e.push(t("v_one_language"));
+    ls.forEach((l) => { if (!LANG_RE.test(l)) e.push(t("v_lang_code", { l })); });
+  }
+  if (id === "caps") {
+    const s = (d.caps || {}).schedule || {};
+    for (const k of ["daily_run", "hot_replies"]) if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s[k] || "")) e.push(t("v_time", { f: t("f_" + k) }));
+    if (s.check_replies_hours && !/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/.test(s.check_replies_hours)) e.push(t("v_hours"));
+  }
+  return e;
+}
+
+/* ---------------------------------------------------------------- SETUP */
+const STEP_DEFS = [
+  { id: "brand", docs: ["brand"], done: () => { const b = cfg("brand"); return !!b && b.brand_name && b.brand_name !== "Your Brand" && b.rep_name && b.rep_name !== "Your Name"; }, render: stepBrand },
+  { id: "categories", docs: ["catalog", "funnel", "channels"], check: ["catalog"], before: reconcileCategories, done: () => ((cfg("catalog") || {}).categories || []).some((c) => c.label && c.id !== "products") || ((cfg("catalog") || {}).categories || []).length > 1, render: stepCategories },
+  { id: "funnel", docs: ["funnel"], done: () => { const f = cfg("funnel"); return !!f && Object.values(f.destinations || {}).length > 0 && Object.values(f.destinations).every((d) => d.url && d.url !== "https://example.com/"); }, render: stepFunnel },
+  { id: "languages", docs: ["languages"], done: () => Object.keys((cfg("languages") || {}).languages || {}).length > 0, render: stepLanguages },
+  { id: "knowledge", docs: ["facts"], done: () => ((cfg("facts") || {}).facts || []).some((f) => f.approved), render: stepFacts },
+  { id: "channels", docs: ["channels"], done: () => ((cfg("channels") || {}).channels || []).length > 0, render: stepChannelsPaste },
+  { id: "caps", docs: ["caps"], done: () => !!cfg("caps") && ["careful", "normal"].includes(cfg("caps").preset), render: stepCaps },
+  { id: "schedule", docs: ["caps"], done: () => !!cfg("caps") && !!((cfg("caps").caps || {}).schedule || {}).daily_run, render: stepSchedule },
+];
+function viewSetup(main) {
+  if (!cfg("brand")) {
+    main.append(emptyState(t("setup_wait_title"), el("p", { text: t("setup_wait_body") })));
+    return;
+  }
+  const def = STEP_DEFS[step];
+  main.append(el("div", { class: "setup" },
+    el("ol", { class: "steps", "aria-label": t("tab_setup") }, STEP_DEFS.map((s, i) =>
+      el("li", null, el("button", { class: "step", "aria-current": i === step ? "step" : null, onclick: () => { formErrors = []; step = i; renderApp(); } },
+        el("span", { class: "dot" + (s.done() ? " done" : ""), text: s.done() ? "✓" : String(i + 1) }), t("step_" + s.id))))),
+    el("section", { class: "panel" },
+      el("div", { class: "section-title" }, el("div", null, el("h2", { text: t("step_" + def.id) }), el("p", { class: "lede", text: t("step_" + def.id + "_lede") }))),
+      def.render(),
+      saveBar(def.docs, step < STEP_DEFS.length - 1 ? el("button", { class: "btn", onclick: () => { formErrors = []; step++; renderApp(); }, text: t("next") }) : null, def.check, def.before))));
+}
+function stepBrand() {
+  const d = draftOf("brand"); const b = binder("brand");
+  return el("div", { class: "stack" },
+    el("div", { class: "grid2" },
+      field(t("f_brand_name"), b.text(d, "brand_name")),
+      field(t("f_rep_name"), b.text(d, "rep_name")),
+      field(t("f_owner_email"), b.text(d, "owner_email", { type: "email" }), t("h_owner_email")),
+      field(t("f_ui_language"), b.select(d, "ui_language", ["en", "vi", "es"], (v) => I18N[v]._name))),
+    field(t("f_disclosure"), b.text(d, "disclosure"), t("h_disclosure")),
+    el("div", { class: "meaning" }, el("span", { class: "mute", text: t("preview") + ": " }), el("span", { id: "disc-prev", text: (d.disclosure || "").replace("{rep}", d.rep_name || "").replace("{brand}", d.brand_name || "") })),
+    el("div", { class: "grid2" },
+      field(t("f_audience_timezone"), b.text(d, "audience_timezone", { ph: "Europe/Madrid" }), t("h_audience_tz")),
+      field(t("f_operator_timezone"), b.text(d, "operator_timezone", { ph: "Asia/Ho_Chi_Minh" }), t("h_operator_tz"))));
+}
+function reconcileCategories() {
+  // keep funnel destinations and channel categories consistent with the catalog
+  const cats = (draftOf("catalog") || {}).categories || []; const ids = new Set(cats.map((c) => c.id));
+  const f = draftOf("funnel");
+  if (f) {
+    f.destinations = f.destinations || {};
+    for (const c of cats) if (!f.destinations[c.id]) f.destinations[c.id] = { type: "website", name: c.label || c.id, url: "https://example.com/", covers: [], tracked_base: "" };
+    for (const k of Object.keys(f.destinations)) if (!ids.has(k)) delete f.destinations[k];
+    (f.member_counts || []).forEach((r) => { for (const c of cats) if (!(c.id in r)) r[c.id] = 0; for (const k of Object.keys(r)) if (!["date", "note"].includes(k) && !ids.has(k)) delete r[k]; });
+    markDirty("funnel");
+  }
+  const ch = draftOf("channels");
+  if (ch) { ch.channels.forEach((c) => { c.fit = (c.fit || []).filter((x) => ids.has(x)); if (!c.fit.length && cats.length) c.fit = [cats[0].id]; }); markDirty("channels"); }
+}
+function stepCategories() {
+  const d = draftOf("catalog"); const b = binder("catalog");
+  const saved = new Set(((cfg("catalog") || {}).categories || []).map((c) => c.id));
+  const rows = (d.categories || []).map((c, i) => el("div", { class: "list-row", style: "grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minmax(0,2fr) auto" },
+    field(t("f_label"), el("input", { type: "text", value: c.label || "", disabled: !canWrite, oninput: (e) => { c.label = e.target.value; if (!saved.has(c.id)) { c.id = slug(c.label) || c.id; const idf = e.target.closest(".list-row").querySelector("[data-idf]"); if (idf) idf.value = c.id; } markDirty("catalog"); } })),
+    field("id", el("input", { type: "text", value: c.id || "", "data-idf": "1", disabled: !canWrite || saved.has(c.id), oninput: (e) => { c.id = e.target.value; markDirty("catalog"); } })),
+    field(t("f_keywords"), b.csv(c, "keywords", { ph: t("h_keywords") })),
+    el("button", { class: "btn small danger", disabled: !canWrite || d.categories.length < 2, onclick: () => { d.categories.splice(i, 1); markDirty("catalog"); renderApp(); }, text: t("remove") })));
+  return el("div", { class: "stack" }, rows,
+    el("div", null, el("button", { class: "btn", disabled: !canWrite, onclick: () => { d.categories.push({ id: "category-" + (d.categories.length + 1), label: "", keywords: [] }); markDirty("catalog"); renderApp(); }, text: "+ " + t("add_category") })),
+    el("p", { class: "hint", text: t("h_categories_funnel") }));
+}
+function stepFunnel() {
+  const d = draftOf("funnel"); const cats = (draftOf("catalog") || cfg("catalog") || {}).categories || [];
+  const b = binder("funnel");
+  d.destinations = d.destinations || {}; d.member_counts = d.member_counts || [];
+  const blocks = cats.map((c) => {
+    const x = d.destinations[c.id] || (d.destinations[c.id] = { type: "website", name: c.label || c.id, url: "https://example.com/", covers: [], tracked_base: "" });
+    return el("div", { class: "list-row" },
+      el("h3", { text: c.label || c.id }),
+      el("div", { class: "grid2" },
+        field(t("f_dest_type"), b.select(x, "type", DEST_TYPES, (v) => t("dest_" + v))),
+        field(t("f_dest_name"), b.text(x, "name")),
+        field(t("f_dest_url"), b.text(x, "url", { type: "url", ph: "https://" })),
+        field(t("f_tracked"), b.text(x, "tracked_base", { type: "url" }), t("h_tracked"))));
+  });
+  const counts = table([{ key: "date", label: t("f_date") }, ...cats.map((c) => ({ key: c.id, label: c.label || c.id, num: true, render: (r) => el("input", { type: "number", min: 0, value: r[c.id] ?? 0, disabled: !canWrite, oninput: (e) => { r[c.id] = Number(e.target.value); markDirty("funnel"); } }) })),
+    { key: "note", label: t("f_note"), render: (r) => el("input", { type: "text", value: r.note || "", disabled: !canWrite, oninput: (e) => { r.note = e.target.value; markDirty("funnel"); } }) }], d.member_counts);
+  return el("div", { class: "stack" }, blocks, el("h3", { text: t("member_counts") }), el("p", { class: "hint", text: t("h_member_counts") }), counts,
+    el("div", null, el("button", { class: "btn", disabled: !canWrite, onclick: () => { const r = { date: today(), note: "" }; cats.forEach((c) => (r[c.id] = 0)); d.member_counts.push(r); markDirty("funnel"); renderApp(); }, text: "+ " + t("add_count") })));
+}
+function stepLanguages() {
+  const d = draftOf("languages"); const b = binder("languages");
+  d.languages = d.languages || {};
+  const used = new Set(((cfg("channels") || {}).channels || []).map((c) => c.language));
+  const rows = Object.entries(d.languages).map(([code, v]) => el("div", { class: "list-row", style: "grid-template-columns: 110px minmax(0,1fr) minmax(0,2fr) auto" },
+    field(t("f_lang_code"), el("input", { type: "text", value: code, disabled: true })),
+    el("div", null, b.check(v, "native_review_done", t("f_reviewed"))),
+    field(t("f_reviewer"), b.text(v, "reviewer")),
+    el("button", { class: "btn small danger", disabled: !canWrite || used.has(code) || Object.keys(d.languages).length < 2, title: used.has(code) ? t("h_lang_used") : "", onclick: () => { delete d.languages[code]; markDirty("languages"); renderApp(); }, text: t("remove") })));
+  const input = el("input", { type: "text", id: "newlang", placeholder: "es-419, vi, en", disabled: !canWrite });
+  return el("div", { class: "stack" }, el("p", { class: "banner info", text: t("h_languages") }), rows,
+    el("div", { class: "row" }, input, el("button", { class: "btn", disabled: !canWrite, onclick: () => {
+      const code = input.value.trim();
+      if (!LANG_RE.test(code)) { toast(t("v_lang_code", { l: code }), true); return; }
+      d.languages[code] = d.languages[code] || { native_review_done: false, reviewer: "" }; markDirty("languages"); renderApp();
+    }, text: "+ " + t("add_language") })));
+}
+function stepFacts() {
+  const d = draftOf("facts") || { id: "facts", facts: [] }; draft.facts = d; d.facts = d.facts || [];
+  const b = binder("facts");
+  const scopes = ["company", ...(((cfg("catalog") || {}).categories) || []).map((c) => c.id)];
+  const rows = d.facts.map((f, i) => el("div", { class: "list-row", style: "grid-template-columns: 150px minmax(0,1fr) auto auto" },
+    field(t("f_scope"), b.select(f, "scope", scopes, (v) => (v === "company" ? t("scope_company") : v))),
+    field(t("f_fact"), b.text(f, "text", { ph: t("h_fact") })),
+    el("div", null, b.check(f, "approved", t("approved"))),
+    el("button", { class: "btn small danger", disabled: !canWrite, onclick: () => { d.facts.splice(i, 1); markDirty("facts"); renderApp(); }, text: t("remove") })));
+  return el("div", { class: "stack" }, el("p", { class: "banner info", text: t("h_facts") }),
+    rows.length ? rows : emptyState(t("no_facts"), el("p", { text: t("h_facts_empty") })),
+    el("div", null, el("button", { class: "btn", disabled: !canWrite, onclick: () => { d.facts.push({ id: "f" + Date.now().toString(36), scope: "company", text: "", approved: false }); markDirty("facts"); renderApp(); }, text: "+ " + t("add_fact") })));
+}
+function newChannel(url, n) {
+  const langs = Object.keys((cfg("languages") || {}).languages || {});
+  const cats = ((cfg("catalog") || {}).categories || []).map((c) => c.id);
+  const isGroup = url.includes("/groups/");
+  const tail = url.replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop();
+  return { id: "C" + n, name: (isGroup ? "Group " : "Page ") + tail, url, kind: isGroup ? "discussion" : "page", identity: "personal", language: langs[0] || "en",
+    fit: cats.slice(0, 1), city: "", members: 0, posts_per_day: 0, promo_posts: "unknown", links: "unknown", rules: "", wave: "pilot", state: "not_joined", joined_on: "" };
+}
+function addChannels(text) {
+  const d = draftOf("channels"); if (!d) return 0;
+  const have = new Set(d.channels.map((c) => c.url.replace(/\/+$/, "")));
+  let n = d.channels.length, added = 0;
+  for (const raw of text.split(/\s+/)) {
+    const url = raw.trim().replace(/\/+$/, "");
+    if (!FB_RE.test(url) || have.has(url)) continue;
+    let id; do { n++; id = "C" + n; } while (d.channels.some((c) => c.id === id));
+    d.channels.push(newChannel(url, n)); have.add(url); added++;
+  }
+  if (added) markDirty("channels");
+  return added;
+}
+function pasteBox() {
+  const ta = el("textarea", { id: "pasteurls", placeholder: "https://www.facebook.com/groups/…\nhttps://www.facebook.com/yourpage", rows: 4, disabled: !canWrite });
+  return el("div", { class: "stack" }, field(t("f_paste"), ta, t("h_paste")),
+    el("div", null, el("button", { class: "btn", disabled: !canWrite, onclick: () => {
+      const n = addChannels(ta.value); ta.value = "";
+      toast(n ? t("added_n", { n }) : t("added_none"), !n); renderApp();
+    }, text: "+ " + t("add_channels") })));
+}
+function stepChannelsPaste() {
+  const d = draftOf("channels");
+  return el("div", { class: "stack" }, el("p", { class: "banner info", text: t("h_join_yourself") }), pasteBox(),
+    el("p", null, t("channels_count", { n: d ? d.channels.length : 0 }), " ", el("button", { class: "btn small", onclick: () => { tab = "channels"; renderApp(); }, text: t("open_channels_tab") })));
+}
+function stepCaps() {
+  const d = draftOf("caps");
+  if (!d) return emptyState(t("setup_wait_title"), el("p", { text: t("setup_wait_body") }));
+  const keys = Object.keys(PRESETS.careful);
+  const radios = ["careful", "normal"].map((p) => el("label", { class: "chk" }, el("input", { type: "radio", name: "preset", checked: d.preset === p, disabled: !canWrite, onchange: () => { d.preset = p; markDirty("caps"); renderApp(); } }), el("span", null, el("b", { text: t("preset_" + p) }), " ", el("span", { class: "mute", text: t("preset_" + p + "_d") }))));
+  const tbl = table([{ key: "k", label: t("f_limit") }, { key: "careful", label: t("preset_careful"), num: true }, { key: "normal", label: t("preset_normal"), num: true }],
+    keys.map((k) => ({ k: t("cap_" + k.replace(/\./g, "_")), careful: PRESETS.careful[k], normal: PRESETS.normal[k] })));
+  d.caps = d.caps || {}; d.caps.identity = d.caps.identity || {}; d.caps.identity.page = d.caps.identity.page || { enabled: false };
+  return el("div", { class: "stack" }, d.preset === "custom" ? el("p", { class: "banner info", text: t("preset_custom") }) : null, el("div", { class: "stack" }, radios), tbl,
+    el("p", { class: "hint", text: t("h_caps") }), binder("caps").check(d.caps.identity.page, "enabled", t("page_identity")));
+}
+function scheduleEditor(docId) {
+  const d = draftOf("caps");
+  if (!d) return emptyState(t("setup_wait_title"), el("p", { text: t("setup_wait_body") }));
+  d.caps = d.caps || {}; d.caps.schedule = d.caps.schedule || {};
+  const s = d.caps.schedule; const b = binder("caps"); const tz = (cfg("brand") || {}).operator_timezone || "";
+  return el("div", { class: "stack" }, el("p", { class: "hint", text: t("h_schedule", { tz }) }),
+    el("div", { class: "grid2" },
+      field(t("f_daily_run"), b.text(s, "daily_run", { type: "time" })),
+      field(t("f_hot_replies"), b.text(s, "hot_replies", { type: "time" })),
+      field(t("f_check_hours"), b.text(s, "check_replies_hours", { ph: "20:00-07:00" }), t("h_check_hours"))));
+}
+function stepSchedule() { return scheduleEditor(); }
+
+/* ---------------------------------------------------------------- CHANNELS */
+function viewChannels(main) {
+  const d = draftOf("channels");
+  if (!d) { main.append(emptyState(t("setup_wait_title"), el("p", { text: t("setup_wait_body") }))); return; }
+  const b = binder("channels");
+  const cats = ((draftOf("catalog") || cfg("catalog") || {}).categories || []);
+  const langs = Object.keys((cfg("languages") || {}).languages || {});
+  const group = (id) => D.groups.find((g) => g.id === id) || {};
+  const cols = [
+    { key: "id", label: "id", render: (c) => el("span", { class: "mono", text: c.id }) },
+    { key: "name", label: t("f_name"), render: (c) => el("div", { class: "stack", style: "gap:4px;min-width:200px" }, b.text(c, "name"), el("span", { class: "mono" }, link(c.url, c.url.replace(/^https:\/\/(www\.)?/, "")))) },
+    { key: "kind", label: t("f_kind"), render: (c) => b.select(c, "kind", KINDS, (v) => t("kind_" + v)) },
+    { key: "language", label: t("f_lang_code"), render: (c) => b.select(c, "language", langs.includes(c.language) ? langs : [...langs, c.language]) },
+    { key: "fit", label: t("f_fit"), render: (c) => el("div", { class: "stack", style: "gap:2px" }, cats.map((k) => el("label", { class: "chk" }, el("input", { type: "checkbox", checked: (c.fit || []).includes(k.id), disabled: !canWrite, onchange: (e) => { c.fit = (c.fit || []).filter((x) => x !== k.id); if (e.target.checked) c.fit.push(k.id); markDirty("channels"); } }), el("span", { text: k.label || k.id })))) },
+    { key: "state", label: t("f_state"), render: (c) => b.select(c, "state", STATES, (v) => t("state_" + v)) },
+    { key: "joined_on", label: t("f_joined"), render: (c) => b.text(c, "joined_on", { type: "date" }) },
+    { key: "wave", label: t("f_wave"), render: (c) => b.select(c, "wave", WAVES) },
+    { key: "promo_posts", label: t("f_promo"), render: (c) => b.select(c, "promo_posts", TRI, (v) => t("tri_" + v)) },
+    { key: "links", label: t("f_links"), render: (c) => b.select(c, "links", TRI, (v) => t("tri_" + v)) },
+    { key: "stats", label: t("f_activity"), render: (c) => { const g = group(c.id); return el("span", { class: "mono mute", text: g.id ? t("activity_line", { p: g.items_posted ?? 0, o: g.open_conversations ?? 0 }) : "–" }); } },
+  ];
+  main.append(el("section", { class: "panel" },
+    el("div", { class: "section-title" }, el("div", null, el("h2", { text: t("tab_channels") }), el("p", { class: "lede", text: t("channels_lede") }))),
+    table(cols, d.channels, { emptyTitle: t("no_channels"), emptyBody: el("p", { text: t("no_channels_body") }) }),
+    el("div", { style: "margin-top:18px" }, pasteBox()),
+    saveBar(["channels"])));
+}
+
+/* ---------------------------------------------------------------- APPROVALS */
+function preview(item) {
+  const name = (cfg("brand") || {}).rep_name || summary().brand_name || "";
+  const ch = (D.groups.find((g) => g.id === item.channel) || {}).name || item.channel;
+  return el("div", { class: "fb" }, el("div", { class: "fbcard" },
+    el("div", { class: "hd" }, el("div", { class: "av", text: (name.trim()[0] || "?").toUpperCase() }),
+      el("div", null, el("div", { class: "nm" }, name, " ", el("span", { text: "▸ " }), ch), el("div", { class: "sub", text: t("fb_justnow") + " · " + t("fb_preview") }))),
+    el("div", { class: "tx", text: item.text || "" }),
+    el("div", { class: "ft" }, el("span", { text: "👍 " + t("fb_like") }), el("span", { text: "💬 " + t("fb_comment") }), el("span", { text: "↗ " + t("fb_share") }))));
+}
+async function mark(item, decision, note) {
+  const cur = one("approvals", item.id);
+  if (cur && cur.decision === decision && note === undefined) { await remove("approvals/" + item.id); return; }
+  await write("approvals/" + item.id, { id: item.id, queue_id: item.id, date: item.date, n: item.n, decision, note: note ?? (cur ? cur.note || "" : ""), markedAt: new Date().toISOString(), markedBy: myId });
+}
+function viewApprovals(main) {
+  const items = [...D.queue].sort((a, b) => (a.date + a.queue + String(a.n).padStart(4, "0")).localeCompare(b.date + b.queue + String(b.n).padStart(4, "0")));
+  if (!items.length) { main.append(emptyState(t("no_queue"), el("p", { text: t("no_queue_body") }))); return; }
+  const latest = items.reduce((m, i) => (i.date > m ? i.date : m), "");
+  const shown = items.filter((i) => i.date === latest);
+  const counts = { approve: 0, edit: 0, drop: 0, none: 0 };
+  shown.forEach((i) => { const a = one("approvals", i.id); counts[a && counts[a.decision] !== undefined ? a.decision : "none"]++; });
+  const phrase = t("approved_as_marked");
+  main.append(el("div", { class: "summary-bar" },
+    el("div", { class: "meta" }, el("b", { text: latest }), pill(t("dec_approve") + " " + counts.approve, "good"), pill(t("dec_edit") + " " + counts.edit, "warn"), pill(t("dec_drop") + " " + counts.drop, "bad"), pill(t("unmarked") + " " + counts.none)),
+    el("div", { class: "row" }, el("span", { class: "mute", text: t("say_in_chat") }), el("code", { class: "mono", text: "“" + phrase + "”" }),
+      el("button", { class: "btn small", onclick: async () => { try { await navigator.clipboard.writeText(phrase); toast(t("copied")); } catch (e) { toast(phrase); } }, text: t("copy") }))));
+  main.append(el("p", { class: "banner info", text: t("marks_are_proposals" ) }));
+  main.append(el("div", { class: "appr-list" }, shown.map((i) => {
+    const a = one("approvals", i.id) || {};
+    const btn = (dec, cls) => el("button", { class: "btn" + (a.decision === dec ? " " + cls : ""), "aria-pressed": String(a.decision === dec), disabled: !canWrite, onclick: () => mark(i, dec), text: t("dec_" + dec) });
+    return el("article", { class: "appr" + (a.decision ? " marked-" + a.decision : "") },
+      preview(i),
+      el("div", { class: "stack" },
+        el("div", { class: "meta" }, el("b", { text: "#" + i.n }), pill(t("type_" + i.type) === "type_" + i.type ? i.type : t("type_" + i.type), "accent"), pill(i.channel), i.time ? pill(i.time) : null,
+          i.category ? pill(i.category) : null, i.review ? pill(t("review") + " " + i.review, i.review === "PASS" ? "good" : "warn") : null, i.risk ? pill(t("risk") + " " + i.risk, i.risk === "PASS" ? "good" : "bad") : null,
+          i.draft_only ? pill(t("draft_only"), "warn") : null, i.has_link ? pill(t("has_link"), "warn") : null),
+        i.meaning ? el("div", { class: "meaning" }, el("div", { class: "lbl", text: t("meaning") }), i.meaning) : null,
+        i.why ? el("p", { class: "mute" }, el("b", { text: t("why") + ": " }), i.why) : null,
+        i.target_url ? el("p", { class: "mono" }, link(i.target_url, i.target_url)) : null,
+        el("div", { class: "decide" }, btn("approve", "on-good"), btn("edit", "on-warn"), btn("drop", "on-bad")),
+        a.decision === "edit" || a.note ? el("label", { class: "field" }, el("span", { class: "lbl", text: t("edit_note") }),
+          el("input", { type: "text", id: "note-" + i.id, value: a.note || "", disabled: !canWrite, placeholder: t("edit_note_ph"), onchange: (e) => mark(i, a.decision || "edit", e.target.value) })) : null));
+  })));
+}
+
+/* ---------------------------------------------------------------- DASHBOARD */
+const SUBS = ["overview", "conversations", "leads", "posts", "runs", "health"];
+function viewDashboard(main) {
+  main.append(el("div", { class: "subnav", role: "group" }, SUBS.map((s) => el("button", { "aria-pressed": String(dashSection === s), onclick: () => { dashSection = s; renderApp(); }, text: t("dash_" + s) }))));
+  ({ overview: dashOverview, conversations: dashConversations, leads: dashLeads, posts: dashPosts, runs: dashRuns, health: dashHealth })[dashSection](main);
+}
+function dashOverview(main) {
+  const sum = summary(); const k = sum.kpis || {};
+  const kp = [[k.groups_active ?? D.groups.filter((g) => g.state === "active").length, t("kpi_groups")], [k.conversations_open ?? 0, t("kpi_open")], [k.items_posted ?? D.posts.length, t("kpi_posted")], [k.leads ?? D.leads.length, t("kpi_leads")]];
+  main.append(el("div", { class: "kpis" }, kp.map(([n, l]) => el("div", { class: "kpi" }, el("div", { class: "n", text: n }), el("div", { class: "l", text: l })))));
+  const fun = STAGES.map((s) => D.funnel.find((f) => f.stage === s) || { stage: s, now: 0, ever: 0 });
+  const max = Math.max(1, ...fun.map((f) => Math.max(f.now || 0, f.ever || 0)));
+  const ready = [...D.readiness].sort((a, b) => a.id.localeCompare(b.id));
+  main.append(el("div", { class: "two" },
+    el("section", { class: "panel" }, el("div", { class: "section-title" }, el("h3", { text: t("funnel") }), el("span", { class: "hint", text: t("funnel_legend") })),
+      D.conversations.length || D.funnel.length ? el("div", { class: "funnel" }, fun.map((f) => el("div", { class: "frow" }, el("span", { text: stageName(f.stage) }),
+        el("div", { class: "bar", title: t("funnel_legend") }, el("i", { style: "width:" + ((f.ever || 0) / max) * 100 + "%" }), el("i", { class: "now", style: "width:" + ((f.now || 0) / max) * 100 + "%;opacity:.9" })),
+        el("span", { class: "mono", text: (f.now || 0) + " / " + (f.ever || 0) })))) : emptyState(t("none_yet"), "")),
+    el("section", { class: "panel" }, el("div", { class: "section-title" }, el("h3", { text: t("readiness") }), el("span", { class: "hint", text: ready.filter((r) => r.status === "done").length + "/" + ready.length })),
+      ready.length ? el("ul", { class: "checklist" }, ready.map((r) => el("li", null, el("span", { class: "tick" + (r.status === "done" ? " done" : ""), role: "img", "aria-label": r.status === "done" ? t("done") : t("open") }),
+        el("div", null, el("b", { text: r.item }), el("div", { class: "hint", text: r.detail || "" }))))) : emptyState(t("none_yet"), ""))));
+  const g = D.groups;
+  main.append(el("section", { class: "panel", style: "margin-top:18px" }, el("h3", { style: "margin-bottom:10px", text: t("tab_channels") }),
+    table([{ key: "id", label: "id" }, { key: "name", label: t("f_name") }, { key: "state", label: t("f_state"), render: (r) => pill(t("state_" + r.state), r.state === "active" ? "good" : r.in_warmup ? "warn" : "") },
+      { key: "warmup_until", label: t("warmup_until") }, { key: "items_posted", label: t("kpi_posted"), num: true }, { key: "open_conversations", label: t("kpi_open"), num: true }, { key: "last_scan_posts", label: t("posts_read"), num: true }], g)));
+}
+function stagePill(s) { return pill(stageName(s), s === "X" ? "" : s === "4" ? "good" : "accent"); }
+function dashConversations(main) {
+  const rows = [...D.conversations].sort((a, b) => (b.last_checked || "").localeCompare(a.last_checked || ""));
+  main.append(table([{ key: "id", label: "id", render: (r) => el("span", { class: "mono", text: r.id }) }, { key: "channel", label: t("f_channel") }, { key: "stage", label: t("f_stage"), render: (r) => stagePill(r.stage) },
+    { key: "category", label: t("f_category") }, { key: "counterpart", label: t("f_counterpart") }, { key: "next_move", label: t("f_next_move") }, { key: "unanswered_turns", label: t("f_unanswered"), num: true }, { key: "last_checked", label: t("f_checked") },
+    { key: "thread_url", label: "", render: (r) => link(r.thread_url, t("open")) }], rows));
+}
+function dashLeads(main) {
+  main.append(el("p", { class: "banner info", text: t("leads_note") }));
+  main.append(table([{ key: "name", label: t("f_name"), render: (r) => link(r.profile_url, r.name) }, { key: "channel", label: t("f_channel") }, { key: "category", label: t("f_category") },
+    { key: "contact", label: t("f_contact"), render: (r) => el("span", { class: "mono", text: r.contact || r.whatsapp || "" }) }, { key: "date", label: t("f_date") }], D.leads, { emptyTitle: t("no_leads") }));
+}
+function dashPosts(main) {
+  const rows = [...D.posts].sort((a, b) => (b.datetime || b.date || "").localeCompare(a.datetime || a.date || ""));
+  main.append(table([{ key: "date", label: t("f_date") }, { key: "channel", label: t("f_channel") }, { key: "type", label: t("f_type") },
+    { key: "status", label: t("f_status"), render: (r) => pill(r.status || "", r.status === "posted" ? "good" : r.status === "failed" ? "bad" : "warn") },
+    { key: "has_link", label: t("has_link"), render: (r) => (String(r.has_link).toLowerCase() === "true" ? pill("link", "warn") : "") }, { key: "url", label: "", render: (r) => link(r.url, t("open")) }], rows, { emptyTitle: t("no_posts") }));
+}
+function dashRuns(main) {
+  const rows = [...D.runs].sort((a, b) => b.date.localeCompare(a.date));
+  main.append(table([{ key: "date", label: t("f_date") }, { key: "mode", label: t("f_mode") }, { key: "health", label: t("tab_health_short"), render: (r) => (r.health ? pill(r.health, r.health === "GREEN" ? "good" : r.health === "AMBER" ? "warn" : "bad") : "") },
+    { key: "channels_scanned", label: t("channels_scanned"), num: true }, { key: "posts_read", label: t("posts_read"), num: true }, { key: "candidates", label: t("candidates"), num: true },
+    { key: "items_queued", label: t("queued"), num: true }, { key: "items_approved", label: t("approved"), num: true }, { key: "items_posted", label: t("kpi_posted"), num: true }], rows, { emptyTitle: t("no_runs") }));
+  const lastDate = rows[0] && rows[0].date;
+  const scans = D.scans.filter((s) => s.date === lastDate);
+  if (scans.length) main.append(el("h3", { style: "margin:18px 0 8px", text: t("scans") + " · " + lastDate }), table([{ key: "channel", label: t("f_channel") }, { key: "posts_read", label: t("posts_read"), num: true }, { key: "candidates", label: t("candidates"), num: true }], scans));
+}
+function dashHealth(main) {
+  const by = {};
+  [...D.health].sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id)).forEach((h) => (by[h.identity] = by[h.identity] || []).push(h));
+  const ids = Object.keys(by);
+  main.append(ids.length ? el("div", { class: "stack" }, ids.map((i) => el("section", { class: "panel" }, el("div", { class: "section-title" }, el("h3", { text: i }), pill(by[i][by[i].length - 1].rating, { GREEN: "good", AMBER: "warn", RED: "bad" }[by[i][by[i].length - 1].rating])),
+    el("div", { class: "timeline", role: "img", "aria-label": by[i].map((h) => h.date + " " + h.rating).join(", ") }, by[i].map((h) => el("i", { class: h.rating, title: h.date + " " + h.rating }))),
+    el("p", { class: "hint", style: "margin-top:8px", text: by[i][by[i].length - 1].action ? t("action") + ": " + by[i][by[i].length - 1].action : "" })))) : emptyState(t("no_health"), ""));
+  main.append(el("h3", { style: "margin:18px 0 8px", text: t("incidents") }), table(
+    [{ key: "date", label: t("f_date") }, { key: "identity", label: t("f_identity") }, { key: "what", label: t("f_what") }, { key: "action", label: t("action") }], D.incidents, { emptyTitle: t("no_incidents") }));
+}
+
+/* ---------------------------------------------------------------- CONTROL */
+async function setState(patch) {
+  const cur = one("control", "state") || { id: "state", paused: false, pausedChannels: [] };
+  await write("control/state", { ...cur, ...patch, id: "state", updatedAt: new Date().toISOString(), updatedBy: myId });
+}
+function viewControl(main) {
+  const st = one("control", "state") || { paused: false, pausedChannels: [] };
+  const paused = !!st.paused; const pc = new Set(st.pausedChannels || []);
+  const chans = ((cfg("channels") || {}).channels || []);
+  const reqs = [...D.runRequests].sort((a, b) => (b.requestedAt || "").localeCompare(a.requestedAt || ""));
+  const notes = [...D.notes].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const noteBox = el("textarea", { id: "notebox", placeholder: t("note_ph"), rows: 4, disabled: !canWrite });
+  const sync = one("control", "syncResult");
+  main.append(el("section", { class: "panel", style: "margin-bottom:18px" }, el("div", { class: "big-toggle" },
+    el("div", null, el("h2", null, el("span", { class: "state-dot" + (paused ? " paused" : "") }), paused ? t("state_paused") : t("state_running")), el("p", { class: "lede", text: paused ? t("paused_help") : t("running_help") })),
+    el("button", { class: "btn primary", disabled: !canWrite, onclick: () => setState({ paused: !paused }), text: paused ? t("resume_all") : t("pause_all") }))));
+  if (sync && !sync.ok) main.append(el("div", { class: "banner bad" }, el("div", null, el("b", { text: t("sync_failed") }), el("ul", null, (sync.errors || []).map((e) => el("li", { text: e }))))));
+  main.append(el("div", { class: "cols" },
+    el("section", { class: "panel stack" }, el("h3", { text: t("run_now") }), el("p", { class: "hint", text: t("run_now_help") }),
+      el("div", { class: "row" }, REQUEST_KINDS.map((k) => el("button", { class: "btn", disabled: !canWrite, onclick: async () => {
+        const id = "r-" + Date.now().toString(36);
+        if (await write("runRequests/" + id, { id, kind: k, status: "pending", requestedAt: new Date().toISOString(), requestedBy: myId, note: "" })) toast(t("requested")); }, text: t("kind_" + k) }))),
+      reqs.length ? table([{ key: "kind", label: t("f_type"), render: (r) => t("kind_" + r.kind) }, { key: "requestedAt", label: t("f_date"), render: (r) => String(r.requestedAt || "").slice(0, 16).replace("T", " ") },
+        { key: "status", label: t("f_status"), render: (r) => pill(t("req_" + (r.status || "pending")), r.status === "handled" ? "good" : "warn") }], reqs.slice(0, 8)) : null),
+    el("section", { class: "panel stack" }, el("h3", { text: t("pause_channels") }), el("p", { class: "hint", text: t("pause_channels_help") }),
+      chans.filter((c) => c.state === "active" || pc.has(c.id)).length ? el("div", { class: "stack", style: "gap:8px" }, chans.filter((c) => c.state === "active" || pc.has(c.id)).map((c) =>
+        el("label", { class: "chk" }, el("input", { type: "checkbox", checked: pc.has(c.id), disabled: !canWrite, onchange: (e) => { const s = new Set(st.pausedChannels || []); if (e.target.checked) s.add(c.id); else s.delete(c.id); setState({ pausedChannels: [...s] }); } }), el("span", null, el("b", { class: "mono", text: c.id }), " " + c.name)))) : emptyState(t("no_active_channels"), "")),
+    el("section", { class: "panel stack" }, el("h3", { text: t("schedule") }), scheduleEditor(), saveBar(["caps"])),
+    el("section", { class: "panel stack" }, el("h3", { text: t("notes_for_claude") }), el("p", { class: "hint", text: t("notes_help") }), noteBox,
+      el("div", null, el("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
+        const text = noteBox.value.trim(); if (!text) return;
+        const id = "n-" + Date.now().toString(36);
+        if (await write("notes/" + id, { id, text, status: "new", createdAt: new Date().toISOString(), createdBy: myId })) { noteBox.value = ""; toast(t("note_saved")); } }, text: t("send_note") })),
+      notes.length ? el("ul", { class: "checklist" }, notes.slice(0, 8).map((n) => el("li", null, el("span", { class: "tick" + (n.status === "handled" ? " done" : ""), role: "img", "aria-label": n.status || "new" }), el("div", null, el("div", { text: n.text }), el("div", { class: "hint", text: String(n.createdAt || "").slice(0, 16).replace("T", " ") + " · " + t("req_" + (n.status === "handled" ? "handled" : "pending")) }))))) : null)));
+}
+
+boot();
+</script>

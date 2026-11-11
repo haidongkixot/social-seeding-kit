@@ -13,6 +13,9 @@ Documents (the page keeps them in its database under collection "config"):
   caps       {"id": "caps", "preset": "careful|normal", "caps": {...full caps.toml tree}}
   keywords   {"id": "keywords", ...keywords.toml tree}
   languages  {"id": "languages", "languages": {<code>: {native_review_done, reviewer}}}   (lives in caps.toml)
+  facts      {"id": "facts", "facts": [{id, scope, text, approved}]}   (scope: "company" or a category id)
+             -> knowledge/facts.md (approved) and knowledge/facts-draft.md (not yet approved)
+Keys starting with "_" (the page's bookkeeping, e.g. _updated, _synced) are never written to TOML.
 
 A bundle is one JSON object {"brand": doc, "catalog": doc, ...}; a directory holds <name>.json files.
 Only the keys present are applied; the safety rules (SAFETY.md) are not part of any document.
@@ -21,14 +24,16 @@ Stdlib only: the TOML writer below handles the shapes used by this kit.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import ROOT, load_toml  # noqa: E402
 
-DOCS = ["brand", "catalog", "funnel", "channels", "caps", "keywords", "languages"]
+DOCS = ["brand", "catalog", "funnel", "channels", "caps", "keywords", "languages", "facts"]
 PRESETS = {
     "careful": {"identity.personal.max_items_per_day": 8, "identity.personal.max_offer_posts_per_day": 2,
                 "per_group.max_items_per_day": 2, "content.max_link_share": 0.30, "per_group.warmup_days": 14},
@@ -108,7 +113,40 @@ def export_docs() -> dict[str, dict]:
         "caps": {"id": "caps", "preset": detect_preset(caps), "caps": caps},
         "keywords": {"id": "keywords", **load_toml("keywords.toml", required=False)},
         "languages": {"id": "languages", "languages": languages},
+        "facts": {"id": "facts", "facts": read_facts()},
     }
+
+
+def read_facts() -> list[dict]:
+    """Parse knowledge/facts.md and facts-draft.md: '## scope' sections of '- text' bullets."""
+    out = []
+    for name, approved in (("facts.md", True), ("facts-draft.md", False)):
+        p = ROOT / "knowledge" / name
+        if not p.exists():
+            continue
+        scope = "company"
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if line.startswith("## "):
+                scope = line[3:].strip()
+            elif line.startswith("- ") and line[2:].strip():
+                out.append({"id": f"f{len(out) + 1}", "scope": scope, "text": line[2:].strip(), "approved": approved})
+    return out
+
+
+def write_facts(facts: list[dict]) -> dict[str, str]:
+    today = dt.date.today().isoformat()
+    files = {}
+    for name, approved in (("facts.md", True), ("facts-draft.md", False)):
+        rows = [f for f in facts if bool(f.get("approved")) == approved and str(f.get("text", "")).strip()]
+        if not rows:
+            continue
+        status = f"APPROVED (owner, control center, {today})" if approved else "DRAFT"
+        lines = ["---", f"status: {status}", f"valid_from: {today}", "valid_to:", "---",
+                 "# Facts written on the control center", ""]
+        for scope in dict.fromkeys(f.get("scope", "company") for f in rows):
+            lines += [f"## {scope}"] + [f"- {' '.join(str(f['text']).split())}" for f in rows if f.get("scope", "company") == scope] + [""]
+        files[name] = chr(10).join(lines)
+    return files
 
 
 def detect_preset(caps: dict) -> str:
@@ -125,12 +163,22 @@ def detect_preset(caps: dict) -> str:
 
 # ---------------------------------------------------------------- apply
 def _strip_id(doc: dict) -> dict:
-    return {k: v for k, v in doc.items() if k not in ("id", "_updated", "_updatedBy")}
+    return {k: v for k, v in doc.items() if k != "id" and not k.startswith("_")}
+
+
+def _clean(value):
+    """Drop page bookkeeping keys (leading underscore) at any depth."""
+    if isinstance(value, dict):
+        return {k: _clean(v) for k, v in value.items() if not k.startswith("_")}
+    if isinstance(value, list):
+        return [_clean(v) for v in value]
+    return value
 
 
 def apply_docs(docs: dict[str, dict], dry_run: bool = False) -> list[str]:
     """Write the TOML files for the documents present. Returns the list of files changed."""
     cfg = ROOT / "config"
+    docs = {k: _clean(v) if k != "facts" else v for k, v in docs.items()}
     out: dict[str, str] = {}
     cur_caps = load_toml("caps.toml")
 
@@ -166,11 +214,19 @@ def apply_docs(docs: dict[str, dict], dry_run: bool = False) -> list[str]:
         out["keywords.toml"] = dumps_tree(_strip_id(docs["keywords"]),
                                           "# Search terms and intent signals. Written by sync-control from the control center.")
 
+    if "facts" in docs:
+        for name, text in write_facts(_clean(docs["facts"].get("facts", []))).items():
+            out[f"../knowledge/{name}"] = text
+        for name in ("facts.md", "facts-draft.md"):
+            if f"../knowledge/{name}" not in out and (ROOT / "knowledge" / name).exists() and not dry_run:
+                (ROOT / "knowledge" / name).unlink()
+
     changed = []
     for name, text in out.items():
         path = cfg / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists() or path.read_text(encoding="utf-8") != text:
-            changed.append(f"config/{name}")
+            changed.append(f"config/{name}".replace("config/../", ""))
             if not dry_run:
                 path.write_text(text, encoding="utf-8")
     return changed
