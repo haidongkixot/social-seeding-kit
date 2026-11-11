@@ -53,7 +53,7 @@ def test_skills_reference_known_skills():
     skills = {p.name for p in (PLUGIN / "skills").iterdir()}
     for p in (PLUGIN / "skills").glob("*/SKILL.md"):
         for m in re.findall(r"`/([a-z-]+)`", p.read_text(encoding="utf-8")):
-            assert m in skills or m in {"plugin"}, f"{p.parent.name} mentions unknown skill /{m}"
+            assert m in skills or m in {"plugin", "schedule"}   # schedule: Claude Code's own skill, f"{p.parent.name} mentions unknown skill /{m}"
 
 
 def test_manifests_parse():
