@@ -2,5 +2,8 @@
   "name": "social-seeding",
   "version": "0.1.0",
   "description": "Facebook group and fanpage seeding with human approval: scout, draft, review, risk-gate, and a control-center page.",
-  "license": "SEE LICENSE IN LICENSE"
+  "license": "SEE LICENSE IN LICENSE",
+  "author": {
+    "name": "haidongkixot"
+  }
 }

@@ -1,6 +1,9 @@
 {
   "name": "social-seeding-kit",
-  "owner": { "name": "Social Seeding Kit" },
+  "description": "Approval-first Facebook group and fanpage seeding for Claude Code, with a control-center page.",
+  "owner": {
+    "name": "haidongkixot"
+  },
   "plugins": [
     {
       "name": "social-seeding",
