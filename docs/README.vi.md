@@ -14,7 +14,7 @@ Ngôn ngữ của trang và tài liệu: English ([README.en.md](README.en.md)),
 - **Báo cáo** hai tuần một lần, kèm đề xuất dựa trên số liệu.
 
 ## Cài đặt
-Xem [INSTALL.md](INSTALL.md). Tóm tắt:
+Hướng dẫn từng bước: [GUIDE.vi.md](GUIDE.vi.md). Xem thêm [INSTALL.md](INSTALL.md). Tóm tắt:
 ```
 /plugin marketplace add <đường-dẫn-hoặc-repo-github>
 /plugin install social-seeding@social-seeding-kit

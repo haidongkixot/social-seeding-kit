@@ -14,7 +14,7 @@ Idiomas de la página y de estos documentos: English ([README.en.md](README.en.m
 - **Informes** cada dos semanas, con sugerencias basadas en datos.
 
 ## Instalación
-Consulta [INSTALL.md](INSTALL.md). En resumen:
+Guía paso a paso (en/vi): [GUIDE.en.md](GUIDE.en.md). Consulta también [INSTALL.md](INSTALL.md). En resumen:
 ```
 /plugin marketplace add <ruta-o-repositorio-github>
 /plugin install social-seeding@social-seeding-kit

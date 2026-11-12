@@ -14,7 +14,7 @@ Languages of the page and of these docs: English, Tiếng Việt ([README.vi.md]
 - **Reports** every two weeks, with data-backed suggestions.
 
 ## Install
-See [INSTALL.md](INSTALL.md). In short:
+Step-by-step guide: [GUIDE.en.md](GUIDE.en.md) / [GUIDE.vi.md](GUIDE.vi.md). See also [INSTALL.md](INSTALL.md). In short:
 ```
 /plugin marketplace add <path-or-github-repo>
 /plugin install social-seeding@social-seeding-kit
