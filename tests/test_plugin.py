@@ -134,3 +134,18 @@ def test_control_sync_dry_run_writes_nothing(ws):
     run(ws, "control_sync.py", str(d), "--dry-run")
     assert "Demo Co" in (ws / "config/brand.toml").read_text(encoding="utf-8")
     assert not (ws / "status" / "sync-report.json").exists()
+
+
+def test_control_sync_reads_artifactdata_folder_and_wrapped_documents(ws):
+    """ArtifactData saves one folder per collection and may wrap documents as {id, data, version}."""
+    brand = {"id": "brand", "brand_name": "From Live Pull", "rep_name": "Y", "disclosure": "{rep}", "ui_language": "en",
+             "audience_timezone": "UTC", "operator_timezone": "UTC", "_updated": "2026-11-12T10:00:00Z"}
+    d = ws / "status" / "pull"
+    (d / "config").mkdir(parents=True)
+    (d / "config" / "brand.json").write_text(json.dumps({"id": "brand", "data": brand, "version": 3}), encoding="utf-8")
+    (d / "notes").mkdir()
+    (d / "notes" / "n1.json").write_text(json.dumps({"id": "n1", "text": "hello", "status": "new"}), encoding="utf-8")
+    assert run(ws, "control_sync.py", str(d)).returncode == 0
+    rep = json.loads((ws / "status/sync-report.json").read_text(encoding="utf-8"))
+    assert rep["synced"] == ["brand"] and [n["id"] for n in rep["notes"]] == ["n1"]
+    assert "From Live Pull" in (ws / "config/brand.toml").read_text(encoding="utf-8")

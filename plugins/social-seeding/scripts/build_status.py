@@ -69,7 +69,7 @@ def health() -> list[dict]:
             if not m:
                 continue
             fields = dict(re.findall(r"^- ([a-z ]+): (.*)$", block, re.M))
-            out.append({"id": f"{m.group(1)}-{m.group(2) or '00:00'}-{ident}", "date": m.group(1),
+            out.append({"id": f"{m.group(1)}-{(m.group(2) or '00:00').replace(':', '')}-{ident}", "date": m.group(1),
                         "identity": ident, "rating": m.group(3),
                         "account": fields.get("account status", ""), "notifications": fields.get("notifications", ""),
                         "visibility": fields.get("visibility", ""), "action": fields.get("action", "")})

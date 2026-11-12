@@ -38,11 +38,22 @@ BYPASS = re.compile(r"(ignore (the )?(rules|safety)|skip (the )?approval|without
 
 
 def read_list(d: Path, name: str) -> list[dict]:
+    """Documents of one collection: <name>.json (a list) or a <name>/ folder of <id>.json files, as ArtifactData
+    saves them with out_dir. ArtifactData wraps each document as {id, data, version}: unwrap it."""
     p = d / f"{name}.json"
-    if not p.exists():
+    if p.exists():
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
+        items = data if isinstance(data, list) else list(data.values())
+    elif (d / name).is_dir():
+        items = [json.loads(f.read_text(encoding="utf-8-sig")) for f in sorted((d / name).glob("*.json"))]
+    else:
         return []
-    data = json.loads(p.read_text(encoding="utf-8-sig"))
-    return data if isinstance(data, list) else list(data.values())
+    out = []
+    for x in items:
+        if isinstance(x, dict) and isinstance(x.get("data"), dict) and "version" in x:
+            x = {**x["data"], "id": x.get("id", x["data"].get("id"))}
+        out.append(x)
+    return out
 
 
 def latest_queue_ids() -> tuple[str, set[str]]:

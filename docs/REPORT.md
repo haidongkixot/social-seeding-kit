@@ -34,3 +34,9 @@ Phases 1-5 of `docs/PLAN.md` are done and tagged `v0.1.0`. Phase 6 (migrating Th
 5. **Thai Binh migration** (phase 6): turn the TB project into a workspace, move its facts and playbooks, import conversations and leads, retire the old dashboard after parity, with the owner's OK.
 6. **Language reviews**: the es-419 and vi style guides are starting points; each language still needs its reviewer entry in `caps.toml`. The vi and es UI strings were written by Claude and should get a native read.
 7. Smaller follow-ups: a keywords editor on the page (keywords are written at setup but not editable there yet), per-channel language of the approval sheet, and a `LICENSE`.
+
+## Update: live check of SSK Test (2026-11-12, after the owner approved the five launch steps)
+- Published a private test artifact, "SSK Test": https://claude.ai/artifact/K9eHiq29BVSWngiwxQxjt6 (`db` with admin-only writes, `user`). Seeded it with the 61 synthetic Demo Co documents (two batches); both committed.
+- Read back as the owner, and as a view-level user (reads work; a view-level write is refused by the tool before it is sent). Pulled the `config` collection with `out_dir` and ran `control_sync.py --dry-run` and `validate.py` on it: all 8 documents clean, 0 errors.
+- Two bugs found and fixed: health document ids contained ":" (invalid as Windows file names, now `0800`), and `ArtifactData` saves a folder per collection and may wrap documents as `{id, data, version}` (`control_sync.py` now reads both).
+- Still not done: opening the page in a browser as a real signed-in viewer, an owner edit on the live page followed by `/sync-control`, plugin install, a real Facebook draft-only day, GitHub push and license, native read of the vi/es text.
