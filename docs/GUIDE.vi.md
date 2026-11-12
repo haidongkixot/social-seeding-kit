@@ -22,6 +22,25 @@ Hướng dẫn này đưa bạn từ một máy tính trống đến nhịp làm
 
 ---
 
+## Cài nhanh (một lệnh)
+
+```
+git clone https://github.com/haidongkixot/social-seeding-kit.git
+cd social-seeding-kit
+setup.cmd            (Windows)
+./setup.sh           (macOS / Linux)
+```
+
+Lệnh hỏi tên thương hiệu, rồi tự làm phần còn lại:
+- cài các gói Python;
+- tạo thư mục workspace `../<thương-hiệu>-seeding`;
+- đăng ký plugin với Claude Code chỉ cho thư mục đó;
+- mở Claude Code với `/social-seeding:seeding-setup`.
+
+Claude xuất bản trung tâm điều khiển và đưa bạn đường dẫn: mở ra và điền tab **Thiết lập** (Phần 4). Chỉ cần cài sẵn Python 3.11+, git và Claude Code. Tùy chọn: `python bootstrap.py --help`.
+
+Phần 2 bên dưới mô tả các bước tương tự nếu bạn muốn tự làm tay.
+
 ## Phần 2. Cài plugin
 
 ### 2.1 Tạo thư mục workspace

@@ -2,7 +2,9 @@
 
 A Claude Code plugin (marketplace + one plugin) for approval-first Facebook group and fanpage seeding, with a control-center page.
 
-Install (Claude Code): `/plugin install social-seeding --marketplace haidongkixot/social-seeding-kit` (private repo: you need access).
+**Quick start:** `git clone https://github.com/haidongkixot/social-seeding-kit.git`, then run `setup.cmd` (Windows) or `./setup.sh` (macOS/Linux) in it. You land in the control center's Setup page.
+
+Manual install (Claude Code): `/plugin install social-seeding --marketplace haidongkixot/social-seeding-kit` (private repo: you need access).
 
 - **Install and user guide:** [English](docs/GUIDE.en.md) · [Tiếng Việt](docs/GUIDE.vi.md)
 - English: [docs/README.en.md](docs/README.en.md)

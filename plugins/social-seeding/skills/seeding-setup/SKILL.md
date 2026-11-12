@@ -7,6 +7,12 @@ description: First-run setup of a social seeding workspace in a new Claude accou
 
 You are setting up one brand's seeding workspace. The plugin's `SAFETY.md` (in `${CLAUDE_PLUGIN_ROOT}`) applies from the first minute. The owner is the person talking to you: they sign in to Facebook and join groups themselves. **You never sign in, join, post, comment or message anyone during setup.** Scripts live in `${CLAUDE_PLUGIN_ROOT}/scripts/`.
 
+## Fast path (started by `setup.cmd` / `setup.sh`)
+If the current folder already has `config/brand.toml`, the one-command installer (`bootstrap.py`) has already installed the Python packages, created this workspace and installed the plugin. Then:
+1. Run the prerequisites check (step 1) but only report problems; do not ask the workspace questions of step 2.
+2. Go straight to step 3 (publish the control center), then tell the owner in `ui_language`, in two or three lines: open the link, fill in the **Setup** tab step by step, press Save on each step, and say "done" here when finished.
+3. Continue with step 4 when the owner says done, then steps 5-7 as usual.
+
 ## 1. Prerequisites
 Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/setup_workspace.py" prereqs` and report in plain words what is missing.
 - Python 3.11 or newer, `openpyxl`, `Pillow` (`pip install openpyxl Pillow`), `git`, and a Chrome or Edge browser (for approval-sheet previews). `tzdata` too on Windows (`pip install tzdata`).

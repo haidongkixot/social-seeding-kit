@@ -24,6 +24,25 @@ You need:
 
 ---
 
+## Quick install (one command)
+
+```
+git clone https://github.com/haidongkixot/social-seeding-kit.git
+cd social-seeding-kit
+setup.cmd            (Windows)
+./setup.sh           (macOS / Linux)
+```
+
+It asks for your brand name, then does everything else:
+- installs the Python packages;
+- creates your workspace folder `../<brand>-seeding`;
+- registers the plugin with Claude Code for that folder only;
+- opens Claude Code with `/social-seeding:seeding-setup`.
+
+Claude publishes your control center and gives you the link: open it and fill in the **Setup** tab (Part 4). You only need Python 3.11+, git and Claude Code installed first. Options: `python bootstrap.py --help`.
+
+The rest of Part 2 explains the same steps by hand, if you prefer.
+
 ## Part 2. Install the plugin
 
 ### 2.1 Make a workspace folder
